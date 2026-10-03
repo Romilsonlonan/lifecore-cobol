@@ -1,0 +1,50 @@
+# ── Python ────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+.coverage.*
+*.log
+
+# ── Variáveis de ambiente (NUNCA commitar) ────────────────────
+.env
+.env.local
+.env.*.local
+LifeCore-Mainframe/integration-layer/.env
+
+# ── IDEs ──────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+.kilo/
+
+# ── OS ────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── COBOL compilado ───────────────────────────────────────────
+LifeCore-Mainframe/LOAD/*.so
+LifeCore-Mainframe/LOAD/*.o
+LifeCore-Mainframe/LOAD/*.exe
+
+# ── Dados de teste sensíveis ──────────────────────────────────
+LifeCore-Mainframe/TEST/DATA/
+
+# ── Frontend (submódulo separado) ─────────────────────────────
+LifeCore-Mainframe/frontend/
+
+# ── Node.js ───────────────────────────────────────────────────
+node_modules/
+.next/
+.nuxt/
