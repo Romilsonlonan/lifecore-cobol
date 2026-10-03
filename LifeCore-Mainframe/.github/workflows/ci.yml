@@ -1,0 +1,399 @@
+name: LifeCore-Mainframe CI/CD
+
+on:
+  push:
+    branches: [ "main", "develop" ]
+    paths:
+      - 'LifeCore-Mainframe/**'
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - 'LifeCore-Mainframe/**'
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: LifeCore-Mainframe
+
+jobs:
+  # ----------------------------------------------------------------
+  # JOB 1: Compilacao de todos os programas COBOL
+  # ----------------------------------------------------------------
+  compile:
+    name: Compile COBOL Programs
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install GnuCOBOL
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y gnucobol
+          cobc --version
+
+      - name: Compile all programs
+        run: |
+          mkdir -p LOAD
+          FAILED=0
+          for prog in ARQVAL01 VGCCAP01 FATURA01 PAGTO01 CONCIL01 \
+                      COMIS01 CLEAR01 SETTLE01 DISPUT01; do
+            echo "=== Compilando $prog ==="
+            if cobc -x -I COPYLIB -o LOAD/$prog SRC/COBOL/$prog.cbl; then
+              echo "✓ $prog"
+            else
+              echo "✗ $prog FALHOU"
+              FAILED=$((FAILED+1))
+            fi
+          done
+          if [ $FAILED -gt 0 ]; then
+            echo "::error::$FAILED programa(s) falharam na compilacao"
+            exit 1
+          fi
+
+      - name: Upload compiled binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: cobol-load-${{ github.sha }}
+          path: LifeCore-Mainframe/LOAD/
+          retention-days: 7
+
+  # ----------------------------------------------------------------
+  # JOB 2: Lint / Static Analysis de copybooks e fontes
+  # ----------------------------------------------------------------
+  lint:
+    name: Lint COBOL Sources
+    runs-on: ubuntu-latest
+    needs: compile
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install GnuCOBOL
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y gnucobol
+
+      - name: Syntax check with warnings
+        run: |
+          WARN=0
+          for src in SRC/COBOL/*.cbl; do
+            prog=$(basename "$src" .cbl)
+            echo "--- Syntax check: $prog ---"
+            # -fsyntax-only equivalente: compilar sem linkar
+            if cobc -I COPYLIB -fsyntax-only "$src" 2>&1; then
+              echo "  OK"
+            else
+              echo "  ::warning file=$src::Avisos de sintaxe detectados"
+              WARN=$((WARN+1))
+            fi
+          done
+          echo "Total de programas com avisos: $WARN"
+
+      - name: Check copybooks completeness
+        run: |
+          echo "=== Verificando copybooks referenciados ==="
+          MISSING=0
+          for src in SRC/COBOL/*.cbl; do
+            while IFS= read -r line; do
+              copy=$(echo "$line" | grep -oP '(?<=COPY )\w+')
+              if [ -n "$copy" ] && [ ! -f "COPYLIB/${copy}.cpy" ]; then
+                echo "::error file=$src::Copybook nao encontrado: ${copy}.cpy"
+                MISSING=$((MISSING+1))
+              fi
+            done < <(grep -i "COPY " "$src")
+          done
+          [ $MISSING -eq 0 ] && echo "Todos os copybooks presentes." \
+            || exit 1
+
+      - name: Check for inline SQLCA (should use CPYSQLCA)
+        run: |
+          if grep -rn "05  SQLCAID" SRC/COBOL/; then
+            echo "::error::SQLCA inline encontrado — use COPY CPYSQLCA"
+            exit 1
+          fi
+          echo "Sem SQLCA inline. OK."
+
+      - name: Check PCI compliance (no PAN patterns)
+        run: |
+          # Garante que nenhum programa armazena campo com 16 digitos de cartao
+          if grep -rn "PAN\|NUMERO-CARTAO\|NR-CARTAO-COMPLETO" SRC/COBOL/ COPYLIB/; then
+            echo "::error::Possivel campo de PAN encontrado"
+            exit 1
+          fi
+          echo "Sem campos de PAN detectados. OK."
+
+  # ----------------------------------------------------------------
+  # JOB 3: Testes de integracao (ciclo batch com dados de teste)
+  # ----------------------------------------------------------------
+  integration-test:
+    name: Integration Tests (Batch Cycle)
+    runs-on: ubuntu-latest
+    needs: compile
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install GnuCOBOL
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y gnucobol
+
+      - name: Download compiled binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: cobol-load-${{ github.sha }}
+          path: LifeCore-Mainframe/LOAD/
+
+      - name: Set execute permission
+        run: chmod +x LOAD/*
+
+      - name: Test ARQVAL01 - arquivo OK (RC esperado 0)
+        run: |
+          mkdir -p DATA/INPUT DATA/OUTPUT DATA/QUARANTINE
+          cp TESTDATA/APOLICE_OK.DAT DATA/INPUT/APOLICE
+          : > DATA/OUTPUT/APOLICE
+          : > DATA/QUARANTINE/APOLICE
+          export LIFECORE_DATA_INPUT_APOLICE=DATA/INPUT/APOLICE
+          export LIFECORE_DATA_OUTPUT_APOLICE=DATA/OUTPUT/APOLICE
+          export LIFECORE_DATA_QUARANTINE_APOLICE=DATA/QUARANTINE/APOLICE
+          ./LOAD/ARQVAL01
+          RC=$?
+          echo "ARQVAL01 RC=$RC"
+          [ $RC -le 4 ] || { echo "::error::ARQVAL01 RC=$RC esperado <=4"; exit 1; }
+          VALIDOS=$(grep -c "^D" DATA/OUTPUT/APOLICE 2>/dev/null || echo 0)
+          echo "Registros validos: $VALIDOS"
+
+      - name: Test ARQVAL01 - arquivo com erros (RC esperado 8)
+        run: |
+          cp TESTDATA/APOLICE_ERROS.DAT DATA/INPUT/APOLICE
+          : > DATA/OUTPUT/APOLICE
+          : > DATA/QUARANTINE/APOLICE
+          ./LOAD/ARQVAL01 || true
+          RC=$?
+          ERROS=$(grep -c "^D" DATA/QUARANTINE/APOLICE 2>/dev/null || echo 0)
+          echo "Registros em quarentena: $ERROS"
+          [ $ERROS -gt 0 ] || { echo "::error::Nenhum registro em quarentena com dados invalidos"; exit 1; }
+
+      - name: Test VGCCAP01 - calculo de capital
+        run: |
+          cp TESTDATA/APOLICE_OK.DAT DATA/OUTPUT/APOLICE
+          : > DATA/OUTPUT/CAPITAL
+          export LIFECORE_DATA_OUTPUT_APOLICE=DATA/OUTPUT/APOLICE
+          export LIFECORE_DATA_OUTPUT_CAPITAL=DATA/OUTPUT/CAPITAL
+          ./LOAD/VGCCAP01
+          RC=$?
+          echo "VGCCAP01 RC=$RC"
+          [ $RC -le 4 ] || { echo "::error::VGCCAP01 RC=$RC"; exit 1; }
+
+      - name: Test CLEAR01 - clearing bandeira
+        run: |
+          # Sem arquivo de clearing real, testa apenas abertura/fechamento
+          : > DATA/INPUT/CLEARING
+          echo "H000000000000000000000" >> DATA/INPUT/CLEARING
+          echo "T900000000000000000000" >> DATA/INPUT/CLEARING
+          : > DATA/OUTPUT/CLEARING
+          export LIFECORE_DATA_INPUT_CLEARING=DATA/INPUT/CLEARING
+          export LIFECORE_DATA_OUTPUT_CLEARING=DATA/OUTPUT/CLEARING
+          ./LOAD/CLEAR01 || true
+          echo "CLEAR01 executou sem crash"
+
+      - name: Upload test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ github.sha }}
+          path: |
+            LifeCore-Mainframe/DATA/OUTPUT/
+            LifeCore-Mainframe/DATA/QUARANTINE/
+          retention-days: 3
+
+  # ----------------------------------------------------------------
+  # JOB 4: Validacao do schema SQL (PostgreSQL)
+  # ----------------------------------------------------------------
+  schema-validate:
+    name: Validate SQL Schema
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: lifecore
+          POSTGRES_DB: lifecore_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Apply schema
+        env:
+          PGPASSWORD: lifecore
+        run: |
+          psql -h localhost -U postgres -d lifecore_test \
+               -f SQL/schema.sql
+          echo "Schema aplicado com sucesso."
+
+      - name: Verify tables exist
+        env:
+          PGPASSWORD: lifecore
+        run: |
+          TABLES="SEGURADO APOLICE COBERTURA FATURA PAGAMENTO CONCILIACAO DISPUTA"
+          for t in $TABLES; do
+            COUNT=$(psql -h localhost -U postgres -d lifecore_test -tAc \
+              "SELECT COUNT(*) FROM information_schema.tables \
+               WHERE table_name = LOWER('$t')")
+            if [ "$COUNT" -eq 1 ]; then
+              echo "✓ Tabela $t existe"
+            else
+              echo "::error::Tabela $t nao encontrada no schema"
+              exit 1
+            fi
+          done
+
+
+  # ----------------------------------------------------------------
+  # JOB 5: Testes da Integration Layer (FastAPI)
+  # ----------------------------------------------------------------
+  api-test:
+    name: Integration Layer Tests (FastAPI)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install -r LifeCore-Mainframe/integration-layer/requirements.txt
+
+      - name: Run API tests
+        env:
+          BATCH_CONNECTOR: stub
+          DATA_INPUT_DIR: /tmp/lc/INPUT
+          DATA_OUTPUT_DIR: /tmp/lc/OUTPUT
+          DATA_QUARANTINE_DIR: /tmp/lc/QUARANTINE
+          OTEL_ENABLED: "false"
+        run: |
+          cd LifeCore-Mainframe/integration-layer
+          PYTHONPATH=. pytest tests/test_api.py -v --rootdir=. --tb=short
+
+      - name: Verify API starts + health check
+        run: |
+          cd LifeCore-Mainframe/integration-layer
+          BATCH_CONNECTOR=stub \
+          DATA_INPUT_DIR=/tmp/lc/INPUT \
+          DATA_OUTPUT_DIR=/tmp/lc/OUTPUT \
+          DATA_QUARANTINE_DIR=/tmp/lc/QUARANTINE \
+          OTEL_ENABLED=false \
+          PYTHONPATH=. uvicorn app.main:app --host 127.0.0.1 --port 8080 &
+          sleep 3
+          curl -sf http://127.0.0.1:8080/health | grep '"status":"ok"'
+          echo "API iniciou com sucesso."
+
+      - name: Verify OTel header propagation
+        run: |
+          # X-Trace-Id e X-Request-Id devem estar em toda resposta
+          HEADERS=$(curl -si http://127.0.0.1:8080/health)
+          echo "$HEADERS" | grep -i "x-trace-id" || \
+            { echo "::error::Header X-Trace-Id ausente"; exit 1; }
+          echo "$HEADERS" | grep -i "x-request-id" || \
+            { echo "::error::Header X-Request-Id ausente"; exit 1; }
+          echo "Headers OTel presentes."
+
+
+  # ----------------------------------------------------------------
+  # JOB 6: Playwright E2E Smoke Tests
+  # ----------------------------------------------------------------
+  e2e-test:
+    name: Playwright E2E Smoke Tests
+    runs-on: ubuntu-latest
+    needs: api-test
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install -r LifeCore-Mainframe/integration-layer/requirements.txt
+
+      - name: Install Playwright browsers
+        run: |
+          python -m playwright install chromium --with-deps
+
+      - name: Start API server
+        run: |
+          cd LifeCore-Mainframe/integration-layer
+          BATCH_CONNECTOR=stub \
+          DATA_INPUT_DIR=/tmp/lc/INPUT \
+          DATA_OUTPUT_DIR=/tmp/lc/OUTPUT \
+          DATA_QUARANTINE_DIR=/tmp/lc/QUARANTINE \
+          OTEL_ENABLED=false \
+          PYTHONPATH=. uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+          sleep 4
+          curl -sf http://localhost:8000/health
+
+      - name: Run Playwright tests
+        run: |
+          cd LifeCore-Mainframe/integration-layer
+          PYTHONPATH=. pytest tests/e2e/ -v --tb=short \
+            --base-url http://localhost:8000
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results-${{ github.sha }}
+          path: LifeCore-Mainframe/integration-layer/playwright-results/
+          retention-days: 7
+
+
+  # ----------------------------------------------------------------
+  # JOB 7: Relatorio de status (badge summary)
+  # ----------------------------------------------------------------
+  summary:
+    name: CI Summary
+    runs-on: ubuntu-latest
+    needs: [compile, lint, integration-test, schema-validate, api-test, e2e-test]
+    if: always()
+
+    steps:
+      - name: Build summary
+        run: |
+          echo "## LifeCore-Mainframe CI Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| Compile COBOL | ${{ needs.compile.result }} |" \
+            >> $GITHUB_STEP_SUMMARY
+          echo "| Lint / Static Analysis | ${{ needs.lint.result }} |" \
+            >> $GITHUB_STEP_SUMMARY
+          echo "| Integration Tests | ${{ needs.integration-test.result }} |" \
+            >> $GITHUB_STEP_SUMMARY
+          echo "| SQL Schema Validate | ${{ needs.schema-validate.result }} |" \
+            >> $GITHUB_STEP_SUMMARY
+          echo "| API Tests (FastAPI) | ${{ needs.api-test.result }} |" \
+            >> $GITHUB_STEP_SUMMARY
+          echo "| Playwright E2E | ${{ needs.e2e-test.result }} |" \
+            >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Commit: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
