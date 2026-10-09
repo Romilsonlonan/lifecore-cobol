@@ -6,6 +6,7 @@ Consolida KPIs, últimas transações (importações) e contagens reais.
 Todas as queries são wrapped em try/except — falha parcial retorna zeros,
 nunca um HTTP 500.
 """
+
 from __future__ import annotations
 
 import logging
@@ -19,20 +20,21 @@ router = APIRouter()
 
 def _sb():
     from app.services.supabase_client import get_client
+
     return get_client()
 
 
 # ── Zero-value defaults ───────────────────────────────────────────────────────
 _ZERO_KPIS = {
-    "total_estipulantes":        0,
-    "total_apolices_ativas":     0,
+    "total_estipulantes": 0,
+    "total_apolices_ativas": 0,
     "total_apolices_canceladas": 0,
-    "total_segurados_ativos":    0,
+    "total_segurados_ativos": 0,
     "total_segurados_excluidos": 0,
-    "total_subestipulantes":     0,
-    "subs_canceladas":           0,
-    "faturamento_realizado":     0.0,
-    "faturamento_pendente":      0.0,
+    "total_subestipulantes": 0,
+    "subs_canceladas": 0,
+    "faturamento_realizado": 0.0,
+    "faturamento_pendente": 0.0,
 }
 
 
@@ -41,11 +43,15 @@ def dashboard() -> dict:
     errors: list[str] = []
 
     # ── 1. Estipulantes ───────────────────────────────────────────────────────
+    # Lê cd_status diretamente — fonte de verdade para apólices ativas/canceladas
     estipulantes: list[dict] = []
     try:
-        res = _sb().table("estipulantes").select(
-            "nr_apolice, nm_razao_social, dt_cadastro, subestipulantes"
-        ).execute()
+        res = (
+            _sb()
+            .table("estipulantes")
+            .select("nr_apolice, nm_razao_social, dt_cadastro, cd_status")
+            .execute()
+        )
         estipulantes = res.data or []
     except Exception as exc:
         errors.append(f"estipulantes: {exc}")
@@ -53,46 +59,63 @@ def dashboard() -> dict:
 
     total_estipulantes = len(estipulantes)
 
-    # Subestipulantes (JSONB array, no cd_status — just count)
-    total_subs = 0
-    for est in estipulantes:
-        subs = est.get("subestipulantes") or []
-        if isinstance(subs, list):
-            total_subs += len(subs)
+    # Apólices: status vem do campo cd_status da própria tabela estipulantes
+    # AT/VI = vigente · CA = cancelada · SU = suspensa
+    total_apolices_ativas = sum(1 for e in estipulantes if e.get("cd_status") in ("AT", "VI"))
+    total_apolices_cancelad = sum(1 for e in estipulantes if e.get("cd_status") == "CA")
 
-    # ── 2. Coberturas (segurados) ─────────────────────────────────────────────
+    # ── 2. Subestipulantes (tabela própria → fallback coluna JSONB) ───────────
+    subestipulantes_rows: list[dict] = []
+    try:
+        res = _sb().table("subestipulantes").select("cd_status").execute()
+        subestipulantes_rows = res.data or []
+    except Exception as exc:
+        # Tabela pode não existir ainda (migration 003 pendente)
+        # Fallback: contar via coluna JSONB subestipulantes na tabela estipulantes
+        logger.warning("dashboard – subestipulantes table not ready, using JSONB fallback")
+        try:
+            res2 = _sb().table("estipulantes").select("subestipulantes").execute()
+            for row in res2.data or []:
+                for sub in row.get("subestipulantes") or []:
+                    if isinstance(sub, dict):
+                        subestipulantes_rows.append(sub)
+        except Exception:
+            pass
+
+    total_subs = len(subestipulantes_rows)
+    subs_canceladas = sum(1 for s in subestipulantes_rows if s.get("cd_status") == "CA")
+
+    # ── 3. Coberturas (segurados) ─────────────────────────────────────────────
     coberturas: list[dict] = []
     try:
-        res = _sb().table("coberturas").select(
-            "cd_cpf, cd_status, nr_apolice, vl_capital"
-        ).execute()
+        res = (
+            _sb().table("coberturas").select("cd_cpf, cd_status, nr_apolice, vl_capital").execute()
+        )
         coberturas = res.data or []
     except Exception as exc:
         errors.append(f"coberturas: {exc}")
         logger.warning("dashboard – coberturas query failed: %s", exc)
 
-    cpfs_ativos   = {c["cd_cpf"] for c in coberturas if c.get("cd_status") == "AT"}
-    cpfs_excluid  = {c["cd_cpf"] for c in coberturas if c.get("cd_status") == "EX"}
-    apolices_ativas = {c["nr_apolice"] for c in coberturas if c.get("cd_status") == "AT"}
-    apolices_canceladas = (
-        {c["nr_apolice"] for c in coberturas if c.get("cd_status") == "EX"}
-        - apolices_ativas
+    cpfs_ativos = {c["cd_cpf"] for c in coberturas if c.get("cd_status") == "AT"}
+    cpfs_excluid = {c["cd_cpf"] for c in coberturas if c.get("cd_status") == "EX"}
+
+    total_segurados_ativos = len(cpfs_ativos)
+    total_segurados_excluid = len(cpfs_excluid - cpfs_ativos)
+
+    # Faturamento: soma capital dos segurados AT vs EX
+    fat_realizado = sum(
+        float(c.get("vl_capital") or 0) for c in coberturas if c.get("cd_status") == "AT"
+    )
+    fat_pendente = sum(
+        float(c.get("vl_capital") or 0) for c in coberturas if c.get("cd_status") == "EX"
     )
 
-    total_segurados_ativos  = len(cpfs_ativos)
-    total_segurados_excluid = len(cpfs_excluid - cpfs_ativos)
-    total_apolices_ativas   = len(apolices_ativas)
-    total_apolices_cancelad = len(apolices_canceladas)
-
-    # Faturamento: sum capital AT vs EX (reuse same query result)
-    fat_realizado = sum(float(c.get("vl_capital") or 0) for c in coberturas if c.get("cd_status") == "AT")
-    fat_pendente  = sum(float(c.get("vl_capital") or 0) for c in coberturas if c.get("cd_status") == "EX")
-
-    # ── 3. Importações recentes ───────────────────────────────────────────────
+    # ── 4. Importações recentes ───────────────────────────────────────────────
     importacoes: list[dict] = []
     try:
         res = (
-            _sb().table("importacao_vidas")
+            _sb()
+            .table("importacao_vidas")
             .select(
                 "id_importacao, nr_apolice, qt_registros, qt_validos, qt_erros, "
                 "cd_status, dt_importacao, id_usuario, ts_inclusao"
@@ -113,7 +136,7 @@ def dashboard() -> dict:
 
     ultimas_transacoes = []
     for imp in importacoes:
-        nr   = imp.get("nr_apolice", "")
+        nr = imp.get("nr_apolice", "")
         stat = imp.get("cd_status", "PE")
         dt_raw = imp.get("dt_importacao", "")
         try:
@@ -121,31 +144,33 @@ def dashboard() -> dict:
         except Exception:
             dt_fmt = dt_raw
 
-        ultimas_transacoes.append({
-            "id":           (imp.get("id_importacao") or "")[:8].upper(),
-            "nr_apolice":   nr,
-            "nm_empresa":   nome_map.get(nr, nr),
-            "dt":           dt_fmt,
-            "ts":           imp.get("ts_inclusao", ""),
-            "status":       status_map.get(stat, stat),
-            "qt_registros": imp.get("qt_registros", 0),
-            "qt_validos":   imp.get("qt_validos", 0),
-            "qt_erros":     imp.get("qt_erros", 0),
-            "id_usuario":   imp.get("id_usuario", "—"),
-        })
+        ultimas_transacoes.append(
+            {
+                "id": (imp.get("id_importacao") or "")[:8].upper(),
+                "nr_apolice": nr,
+                "nm_empresa": nome_map.get(nr, nr),
+                "dt": dt_fmt,
+                "ts": imp.get("ts_inclusao", ""),
+                "status": status_map.get(stat, stat),
+                "qt_registros": imp.get("qt_registros", 0),
+                "qt_validos": imp.get("qt_validos", 0),
+                "qt_erros": imp.get("qt_erros", 0),
+                "id_usuario": imp.get("id_usuario", "—"),
+            }
+        )
 
-    # ── 4. Atividades recentes ────────────────────────────────────────────────
+    # ── 5. Atividades recentes ────────────────────────────────────────────────
     atividades = []
     for imp in importacoes[:7]:
-        nr   = imp.get("nr_apolice", "")
+        nr = imp.get("nr_apolice", "")
         nome = nome_map.get(nr, nr)
         stat = imp.get("cd_status", "PE")
-        qv   = imp.get("qt_validos", 0)
-        qe   = imp.get("qt_erros", 0)
+        qv = imp.get("qt_validos", 0)
+        qe = imp.get("qt_erros", 0)
         ts_raw = imp.get("ts_inclusao", "")
         try:
             ts_dt = datetime.fromisoformat(ts_raw.replace("Z", "+00:00"))
-            hora  = ts_dt.astimezone(UTC).strftime("%H:%M")
+            hora = ts_dt.astimezone(UTC).strftime("%H:%M")
         except Exception:
             hora = "—"
 
@@ -158,28 +183,30 @@ def dashboard() -> dict:
         else:
             descr = f"importação pendente — apólice {nr}"
 
-        atividades.append({
-            "actor":   imp.get("id_usuario", "SISTEMA"),
-            "action":  descr,
-            "empresa": nome,
-            "hora":    hora,
-            "status":  stat,
-        })
+        atividades.append(
+            {
+                "actor": imp.get("id_usuario", "SISTEMA"),
+                "action": descr,
+                "empresa": nome,
+                "hora": hora,
+                "status": stat,
+            }
+        )
 
     return {
         "kpis": {
-            "total_estipulantes":        total_estipulantes,
-            "total_apolices_ativas":     total_apolices_ativas,
+            "total_estipulantes": total_estipulantes,
+            "total_apolices_ativas": total_apolices_ativas,
             "total_apolices_canceladas": total_apolices_cancelad,
-            "total_segurados_ativos":    total_segurados_ativos,
+            "total_segurados_ativos": total_segurados_ativos,
             "total_segurados_excluidos": total_segurados_excluid,
-            "total_subestipulantes":     total_subs,
-            "subs_canceladas":           0,          # no status field on subs
-            "faturamento_realizado":     round(fat_realizado, 2),
-            "faturamento_pendente":      round(fat_pendente, 2),
+            "total_subestipulantes": total_subs,
+            "subs_canceladas": subs_canceladas,
+            "faturamento_realizado": round(fat_realizado, 2),
+            "faturamento_pendente": round(fat_pendente, 2),
         },
         "ultimas_transacoes": ultimas_transacoes,
         "atividades": atividades,
-        "errors": errors,           # debug: empty in production
+        "errors": errors,  # debug: empty in production
         "gerado_em": datetime.now(UTC).isoformat(),
     }
