@@ -1,0 +1,27 @@
+# Ruff — LifeCore IQ Integration Layer
+# https://docs.astral.sh/ruff/configuration/
+# Formato: ruff.toml standalone (sem prefixo [tool.ruff])
+
+target-version = "py312"
+line-length = 100
+
+[lint]
+select = ["E", "F", "W", "I"]
+ignore = [
+  # E402: Module level import not at top — comum em FastAPI com sys.path tricks
+  "E402",
+  # BLE001: Blind Exception catch — aceito em agentes AI com fallback
+  "BLE001",
+  # DTZ: datetime sem timezone — TODO: corrigir gradualmente (LCIQ-MLC)
+  "DTZ",
+  # F841: Local variable assigned but never used — alguns são placeholders intencionais
+  "F841",
+  # E741: Ambiguous variable name (l, O, I) — aceito em testes
+  "E741",
+]
+
+[lint.per-file-ignores]
+# Testes: mais permissivos
+"tests/*" = ["E402", "F401", "F811", "S101", "E741"]
+# Scripts de AI: exceções são necessárias
+"app/ai/**" = ["BLE001", "DTZ"]
