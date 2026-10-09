@@ -48,3 +48,9 @@ LifeCore-Mainframe/frontend/
 node_modules/
 .next/
 .nuxt/
+
+# ── Documentação local (não vai pro GitHub) ─────────────────
+study-cobol.md
+.env.notion
+agent-study.md
+scripts/notion_publish.py

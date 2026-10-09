@@ -52,6 +52,29 @@ pytest tests/ --ignore=tests/e2e -q
 # esperado: 252 passed
 ```
 
+## 5.1 Pre-commit e segurança (obrigatório)
+
+```bash
+# Instalar hooks no repositório (uma vez após clonar)
+pip install pre-commit detect-secrets bandit presidio-analyzer presidio-anonymizer
+pre-commit install
+
+# Gerar baseline de segredos existentes (uma vez)
+python3 -m detect_secrets scan \
+  --exclude-files '.*\.lock$' --exclude-files '.*\.svg$' \
+  > .secrets.baseline
+
+# Executar todos os hooks manualmente
+pre-commit run --all-files
+```
+
+**Variáveis extras para o módulo de fraude:**
+```env
+FRAUD_API_PROVIDER=mock        # mock | watsonx | openai
+FRAUD_API_KEY=                 # necessário para watsonx/openai
+FRAUD_API_URL=                 # necessário para watsonx
+```
+
 ## 6. Portal do Corretor
 
 Após subir a Integration Layer, acesse:
@@ -72,6 +95,11 @@ DATABASE_URL=postgresql://lifecore:senha@localhost:5432/lifecore_iq
 JWT_SECRET_KEY=troque-em-producao
 OTEL_ENABLED=false
 RECEITA_WS_ENABLED=false
+
+# Módulo de fraude atuarial (LCIQ-3)
+FRAUD_API_PROVIDER=mock        # mock | watsonx | openai
+FRAUD_API_KEY=
+FRAUD_API_URL=
 ```
 
 ## Convenção de branches

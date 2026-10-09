@@ -1,0 +1,184 @@
+<h2>Diagrama de Arquitetura</h2>
+<p>Visão ilustrada das três camadas do sistema LifeCore IQ: clientes/frontend, Integration Layer (FastAPI) e z/OS Mainframe (COBOL/JCL).</p>
+
+<figure data-type="media-single" data-layout="center" data-width="100" data-width-type="percentage">
+  <div data-type="media" data-media-type="file" data-id="0315db39-db6f-4cb8-8d60-c04011e7f1fa" data-collection="contentId-229382" data-alt="Diagrama de Arquitetura LifeCore IQ — 3 camadas"></div>
+</figure>
+
+<h2>Estrutura do Repositório</h2>
+<p>Árvore completa do projeto <strong>LifeCore-Cobol</strong>, gerada a partir do repositório real. Exclui <code>node_modules</code>, <code>.git</code> e artefatos de build.</p>
+
+<pre><code>LifeCore-Cobol/
+├── AGENTS.md                          ← Base de conhecimento dos 18 agentes IA
+├── .env.example
+├── .gitignore
+│
+└── LifeCore-Mainframe/
+    ├── DOCS.md                        ← Documentação da Integration Layer
+    ├── README.md
+    │
+    ├── COPYLIB/                       ← Copybooks COBOL (layouts de registros)
+    │   ├── CPYAPOL.cpy                ← Layout de apólice
+    │   ├── CPYCLR.cpy                 ← Layout de clearing
+    │   ├── CPYCONC.cpy                ← Layout de conciliação
+    │   ├── CPYERRO.cpy                ← Layout de registro de quarentena
+    │   ├── CPYFATU.cpy                ← Layout de fatura
+    │   ├── CPYLIQ.cpy                 ← Layout de liquidação
+    │   ├── CPYPAGT.cpy                ← Layout de pagamento (token PCI)
+    │   └── CPYSQLCA.cpy               ← SQL Communication Area
+    │
+    ├── DATA/                          ← Arquivos de dados (GDG simulado)
+    │   ├── GDG/                       ← Generation Data Groups
+    │   ├── INPUT/                     ← Arquivos de entrada batch
+    │   ├── OUTPUT/                    ← Arquivos de saída batch
+    │   └── QUARANTINE/                ← Registros rejeitados pelo motor de críticas
+    │
+    ├── JCL/                           ← Jobs de controle (z/OS)
+    │   ├── LCDIA01.jcl                ← Ciclo diário — 13 steps
+    │   ├── LCIMP01.jcl                ← Importação de arquivo
+    │   └── LCSETUP1.jcl               ← Setup inicial do ambiente
+    │
+    ├── RUNBOOK/
+    │   └── ABEND-CATALOG.md           ← Catálogo de falhas e abends z/OS
+    │
+    ├── SCRIPTS/                       ← Scripts de apoio ao desenvolvimento
+    │   ├── compile.sh                 ← Compilação COBOL
+    │   ├── run-cycle.sh               ← Execução do ciclo batch
+    │   └── setup-db.sh                ← Inicialização do banco de dados
+    │
+    ├── SQL/
+    │   ├── schema.sql                 ← Schema v1
+    │   └── schema_v2.sql              ← Schema v2 (atual) — modelo de dados completo
+    │
+    ├── SRC/COBOL/                     ← Programas COBOL
+    │   ├── ARQVAL01.cbl               ← Validação de arquivo de empresa
+    │   ├── CALCCAP.cbl                ← Módulo reutilizável de cálculo de capital
+    │   ├── CLEAR01.cbl                ← Leitura do arquivo de clearing
+    │   ├── COMIS01.cbl                ← Cálculo batch de comissões
+    │   ├── CONCIL01.cbl               ← Conciliação faturado × pago
+    │   ├── DISPUT01.cbl               ← Tratamento de chargebacks
+    │   ├── FATURA01.cbl               ← Geração de fatura batch
+    │   ├── SETTLE01.cbl               ← Conciliação de liquidação
+    │   └── VGCCAP01.cbl               ← Cálculo de capital segurado (VGC)
+    │
+    ├── TESTDATA/
+    │   └── APOLICE_S0C7.DAT           ← Arquivo com S0C7 injetado para treino
+    │
+    ├── frontend/                      ← Dashboard Next.js
+    │   └── app/
+    │       ├── layout.tsx
+    │       ├── page.tsx
+    │       └── globals.css
+    │
+    └── integration-layer/             ← API REST (Python/FastAPI)
+        ├── requirements.txt
+        │
+        ├── app/
+        │   ├── main.py                ← Entry point FastAPI — 22+ routers
+        │   │
+        │   ├── ai/                    ← Módulos de IA
+        │   │   ├── agents/
+        │   │   │   ├── agent.py       ← Agente principal
+        │   │   │   └── tools.py       ← Ferramentas dos agentes
+        │   │   ├── evals/
+        │   │   │   └── evaluator.py   ← Avaliação de respostas
+        │   │   ├── finetune/
+        │   │   │   └── dataset.py     ← Dataset para fine-tuning
+        │   │   ├── guardrails/
+        │   │   │   └── pipeline.py    ← Pipeline de guardrails
+        │   │   ├── mcp/
+        │   │   │   └── server.py      ← Servidor MCP
+        │   │   └── rag/
+        │   │       ├── engine.py      ← Motor RAG (embedding + busca vetorial)
+        │   │       └── transforms.py  ← Normalização de documentos
+        │   │
+        │   ├── api/                   ← Routers REST
+        │   │   ├── cadastros/
+        │   │   │   ├── congenere.py
+        │   │   │   ├── empresa.py
+        │   │   │   └── segurado.py
+        │   │   ├── corretagem/
+        │   │   │   └── corretagem.py  ← Cadastro de corretores
+        │   │   ├── cosseguro/
+        │   │   │   └── cosseguro.py
+        │   │   ├── emissao/
+        │   │   │   ├── apolice.py
+        │   │   │   ├── config_apolice.py  ← Renovação de vigência
+        │   │   │   ├── consulta_apolice.py
+        │   │   │   ├── criticas_router.py
+        │   │   │   ├── faturamento.py     ← Endpoints de fatura e IPCA
+        │   │   │   ├── importacao_movimentacao.py
+        │   │   │   └── proposta.py
+        │   │   ├── impressao/
+        │   │   │   └── controle.py
+        │   │   ├── pessoas/
+        │   │   │   └── pessoas.py
+        │   │   ├── sinistro/
+        │   │   │   ├── kit_ecm.py     ← Documentação ECM
+        │   │   │   └── sinistro.py
+        │   │   ├── ai_router.py
+        │   │   ├── importacao.py
+        │   │   ├── jobs.py
+        │   │   ├── painel.py
+        │   │   └── resultados.py
+        │   │
+        │   ├── auth/                  ← Autenticação e RBAC
+        │   │   ├── dependencies.py
+        │   │   ├── models.py
+        │   │   ├── router.py
+        │   │   └── schema_auth.py
+        │   │
+        │   ├── core/
+        │   │   ├── config.py          ← Configurações da aplicação
+        │   │   └── telemetry.py       ← Observabilidade
+        │   │
+        │   ├── schemas/               ← Modelos Pydantic
+        │   │   ├── apolice.py
+        │   │   └── lifecore.py
+        │   │
+        │   ├── services/              ← Lógica de negócio
+        │   │   ├── batch_connector.py ← Conector stub/local/Zowe
+        │   │   ├── conversor.py
+        │   │   ├── criticas_segurado.py  ← Motor de críticas (E001-W043)
+        │   │   └── movimentacao_segurados.py ← Parser CSV/XLSX
+        │   │
+        │   └── static/
+        │       └── portal.html        ← Portal do Corretor
+        │
+        └── tests/                     ← Suítes de teste (252 testes)
+            ├── e2e/
+            │   ├── conftest.py
+            │   └── test_swagger_smoke.py
+            ├── test_ai_layer.py
+            ├── test_api.py
+            ├── test_auth.py
+            ├── test_config_apolice.py
+            ├── test_corretagem.py
+            ├── test_criticas.py
+            ├── test_faturamento.py
+            └── test_movimentacao.py
+</code></pre>
+
+<h2>Módulos críticos por domínio</h2>
+<table>
+<thead><tr><th>Domínio</th><th>COBOL/JCL</th><th>Python (Integration Layer)</th></tr></thead>
+<tbody>
+<tr><td>🧾 Faturamento</td><td>FATURA01.cbl</td><td>api/emissao/faturamento.py</td></tr>
+<tr><td>📦 Produto/Capital</td><td>VGCCAP01.cbl · CALCCAP.cbl</td><td>—</td></tr>
+<tr><td>👥 Segurados</td><td>—</td><td>services/criticas_segurado.py · services/movimentacao_segurados.py</td></tr>
+<tr><td>💰 Comissões</td><td>COMIS01.cbl</td><td>—</td></tr>
+<tr><td>⚖️ Sinistros</td><td>—</td><td>api/sinistro/sinistro.py · api/sinistro/kit_ecm.py</td></tr>
+<tr><td>🔄 Conciliação</td><td>CONCIL01.cbl · CLEAR01.cbl · SETTLE01.cbl · DISPUT01.cbl</td><td>—</td></tr>
+<tr><td>📁 Arquivos/Batch</td><td>ARQVAL01.cbl · LCDIA01.jcl · LCIMP01.jcl</td><td>api/importacao.py · services/batch_connector.py</td></tr>
+<tr><td>🤖 RAG/IA</td><td>—</td><td>ai/rag/engine.py · ai/rag/transforms.py · ai/agents/agent.py</td></tr>
+<tr><td>🔐 Auth/Governa</td><td>RACF (z/OS)</td><td>auth/router.py · auth/dependencies.py</td></tr>
+<tr><td>🔄 Renovação</td><td>—</td><td>api/emissao/config_apolice.py · api/emissao/proposta.py</td></tr>
+</tbody>
+</table>
+
+<h2>CI/CD — .github/workflows/ci.yml</h2>
+<ul>
+<li>Lint + Typecheck (Python)</li>
+<li>pytest — 252 testes · cobertura mínima 80%</li>
+<li>COBOL compile (via SCRIPTS/compile.sh)</li>
+</ul>

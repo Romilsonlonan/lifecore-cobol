@@ -110,6 +110,21 @@ pytest tests/ --ignore=tests/e2e -q
 # 252 passed
 ```
 
+### Pre-commit e Segurança
+
+```bash
+# Instalar hooks (uma vez)
+pip install pre-commit
+pre-commit install
+
+# Executar manualmente em todos os arquivos
+pre-commit run --all-files
+```
+
+**Hooks ativos:** `ruff` · `ruff-format` · `detect-secrets` · `bandit` · `presidio-pii-scan` · `cobol-pci-check`
+
+Dados de teste com PII? Anote `# presidio: ignore` na linha para evitar falso positivo.
+
 ---
 
 ## Estratégia de Branches
@@ -143,8 +158,8 @@ Todo commit deve referenciar a issue Jira: `git commit -m "LCIQ-042: descrição
 ## Regulatório
 
 - **SUSEP** — seguros de vida em grupo
-- **LGPD** — dados pessoais mascarados; CPF/PAN nunca armazenados em claro
-- **PCI-DSS** — token + 4 últimos dígitos do cartão; PAN nunca persistido
+- **LGPD** — dados pessoais mascarados; CPF/PAN nunca armazenados em claro; Presidio detecta violações em CI
+- **PCI-DSS** — token + 4 últimos dígitos do cartão; PAN nunca persistido; COBOL PCI hook ativo
 - **Banco Central** — clearing, liquidação e conciliação de pagamentos
 
 ---

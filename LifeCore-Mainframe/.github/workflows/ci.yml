@@ -110,7 +110,9 @@ jobs:
 
       - name: Check for inline SQLCA (should use CPYSQLCA)
         run: |
-          if grep -rn "05  SQLCAID" SRC/COBOL/; then
+          # Exclui CPYSQLCA.cpy (é a definição canônica, não violação)
+          if grep -rn "05  SQLCAID" SRC/COBOL/ \
+               $(find COPYLIB/ -name "*.cpy" ! -name "CPYSQLCA.cpy" 2>/dev/null); then
             echo "::error::SQLCA inline encontrado — use COPY CPYSQLCA"
             exit 1
           fi
@@ -368,12 +370,101 @@ jobs:
 
 
   # ----------------------------------------------------------------
-  # JOB 7: Relatorio de status (badge summary)
+  # JOB 7: Security — Bandit SAST + Presidio PII + detect-secrets
+  # ----------------------------------------------------------------
+  security:
+    name: Security Scan (Bandit + Presidio + detect-secrets)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install security tools
+        run: |
+          pip install \
+            bandit==1.7.8 \
+            detect-secrets==1.5.0 \
+            presidio-analyzer==2.2.364 \
+            presidio-anonymizer==2.2.364 \
+            spacy==3.7.4
+          python -m spacy download pt_core_news_sm --quiet || true
+
+      - name: Bandit SAST — análise estática Python
+        run: |
+          bandit -r LifeCore-Mainframe/integration-layer/app/ \
+            --severity-level=medium \
+            --confidence-level=medium \
+            -f json -o bandit-report.json || true
+          bandit -r LifeCore-Mainframe/integration-layer/app/ \
+            --severity-level=medium \
+            --confidence-level=medium \
+            -f txt
+        continue-on-error: false
+
+      - name: detect-secrets — credenciais hardcoded
+        run: |
+          cd LifeCore-Mainframe
+          detect-secrets scan \
+            --exclude-files '.*\.lock$' \
+            --exclude-files 'TESTDATA/.*' \
+            > /tmp/secrets-report.json
+          # Falha se encontrar segredos novos
+          COUNT=$(python3 -c "
+          import json
+          with open('/tmp/secrets-report.json') as f:
+              d = json.load(f)
+          total = sum(len(v) for v in d.get('results', {}).values())
+          print(total)
+          ")
+          echo "Segredos detectados: $COUNT"
+          if [ "$COUNT" -gt 0 ]; then
+            echo "::error::detect-secrets: $COUNT possível(is) segredo(s) encontrado(s)"
+            python3 -c "
+          import json
+          with open('/tmp/secrets-report.json') as f:
+              d = json.load(f)
+          for fname, secrets in d.get('results', {}).items():
+              for s in secrets:
+                  print(f'  {fname}:{s[\"line_number\"]} — {s[\"type\"]}')
+            "
+            exit 1
+          fi
+
+      - name: Presidio PII/PAN scan — LGPD + PCI-DSS
+        run: |
+          python3 scripts/presidio_hook.py \
+            $(find LifeCore-Mainframe/integration-layer/app/ -name "*.py" | tr '\n' ' ')
+
+      - name: COBOL PCI check
+        run: |
+          chmod +x scripts/cobol_pci_hook.sh
+          find LifeCore-Mainframe/SRC/COBOL/ -name "*.cbl" \
+               LifeCore-Mainframe/COPYLIB/ -name "*.cpy" \
+               -print0 2>/dev/null | \
+            xargs -0 scripts/cobol_pci_hook.sh || true
+
+      - name: Upload security reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-reports-${{ github.sha }}
+          path: |
+            bandit-report.json
+          retention-days: 30
+
+  # ----------------------------------------------------------------
+  # JOB 8: Relatorio de status (badge summary)
   # ----------------------------------------------------------------
   summary:
     name: CI Summary
     runs-on: ubuntu-latest
-    needs: [compile, lint, integration-test, schema-validate, api-test, e2e-test]
+    needs: [compile, lint, integration-test, schema-validate, api-test, e2e-test, security]
     if: always()
 
     steps:
@@ -394,6 +485,8 @@ jobs:
           echo "| API Tests (FastAPI) | ${{ needs.api-test.result }} |" \
             >> $GITHUB_STEP_SUMMARY
           echo "| Playwright E2E | ${{ needs.e2e-test.result }} |" \
+            >> $GITHUB_STEP_SUMMARY
+          echo "| 🛡️ Security Scan | ${{ needs.security.result }} |" \
             >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Commit: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
