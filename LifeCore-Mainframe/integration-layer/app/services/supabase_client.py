@@ -3,6 +3,7 @@ LifeCore — Supabase Client
 Cliente singleton usando service_role (acesso total ao banco).
 Usado exclusivamente pelo backend Python — nunca expor no frontend.
 """
+
 from __future__ import annotations
 
 import logging
@@ -22,11 +23,10 @@ def get_client():
 
     if not settings.supabase_url or not settings.supabase_service_key:
         raise RuntimeError(
-            "Supabase não configurado. "
-            "Defina SUPABASE_URL e SUPABASE_SERVICE_KEY no .env"
+            "Supabase não configurado. " "Defina SUPABASE_URL e SUPABASE_SERVICE_KEY no .env"
         )
 
-    from supabase import Client, create_client
+    from supabase import create_client
 
     _client = create_client(settings.supabase_url, settings.supabase_service_key)
     logger.info("Supabase conectado: %s", settings.supabase_url)

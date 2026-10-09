@@ -13,9 +13,9 @@ Variáveis de ambiente:
   OTEL_EXPORTER_OTLP_ENDPOINT = "http://localhost:4317"  (gRPC)
   OTEL_EXPORTER_TYPE  = "grpc" | "http" | "console" (default: console)
 """
-import os
+
 import logging
-from typing import Optional
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +26,7 @@ OTLP_ENDPOINT = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317"
 EXPORTER_TYPE = os.getenv("OTEL_EXPORTER_TYPE", "console")  # console | grpc | http
 
 
-def setup_tracing(app) -> Optional[object]:
+def setup_tracing(app) -> object | None:
     """
     Instrumenta o app FastAPI com OpenTelemetry.
     Retorna o TracerProvider configurado ou None se OTEL_ENABLED=false.
@@ -44,27 +44,38 @@ def setup_tracing(app) -> Optional[object]:
 
     try:
         from opentelemetry import trace
-        from opentelemetry.sdk.trace import TracerProvider
-        from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
-        from opentelemetry.sdk.resources import Resource
         from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+        from opentelemetry.sdk.resources import Resource
+        from opentelemetry.sdk.trace import TracerProvider
+        from opentelemetry.sdk.trace.export import (
+            BatchSpanProcessor,
+            ConsoleSpanExporter,
+        )
 
-        resource = Resource.create({
-            "service.name":      SERVICE_NAME,
-            "service.version":   "2.0.0",
-            "deployment.environment": os.getenv("ENVIRONMENT", "development"),
-        })
+        resource = Resource.create(
+            {
+                "service.name": SERVICE_NAME,
+                "service.version": "2.0.0",
+                "deployment.environment": os.getenv("ENVIRONMENT", "development"),
+            }
+        )
 
         provider = TracerProvider(resource=resource)
 
         # ── Exporter ─────────────────────────────────────────────────────────
         if EXPORTER_TYPE == "grpc":
-            from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+            from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
+                OTLPSpanExporter,
+            )
+
             exporter = OTLPSpanExporter(endpoint=OTLP_ENDPOINT)
             logger.info("OTel → OTLP gRPC: %s", OTLP_ENDPOINT)
 
         elif EXPORTER_TYPE == "http":
-            from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+            from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
+                OTLPSpanExporter,
+            )
+
             http_endpoint = os.getenv(
                 "OTEL_EXPORTER_OTLP_HTTP_ENDPOINT",
                 "http://localhost:4318/v1/traces",
@@ -113,9 +124,11 @@ def get_tracer(name: str = SERVICE_NAME):
     if not OTEL_ENABLED:
         # Retorna tracer noop — não quebra o código quando OTel está desabilitado
         from opentelemetry import trace
+
         return trace.get_tracer(name)
 
     from opentelemetry import trace
+
     return trace.get_tracer(name)
 
 
@@ -138,26 +151,30 @@ def inject_trace_context(job_id: str) -> dict:
     """
     try:
         from opentelemetry import trace
-        from opentelemetry.propagate import inject
 
         span = trace.get_current_span()
         ctx = span.get_span_context()
 
         if ctx.is_valid:
             trace_id = format(ctx.trace_id, "032x")
-            span_id  = format(ctx.span_id,  "016x")
+            span_id = format(ctx.span_id, "016x")
             traceparent = f"00-{trace_id}-{span_id}-01"
         else:
-            trace_id    = "0" * 32
-            span_id     = "0" * 16
+            trace_id = "0" * 32
+            span_id = "0" * 16
             traceparent = ""
 
         return {
             "traceparent": traceparent,
-            "trace_id":    trace_id,
-            "span_id":     span_id,
-            "job_id":      job_id,
+            "trace_id": trace_id,
+            "span_id": span_id,
+            "job_id": job_id,
         }
 
     except Exception:
-        return {"traceparent": "", "trace_id": "0" * 32, "span_id": "0" * 16, "job_id": job_id}
+        return {
+            "traceparent": "",
+            "trace_id": "0" * 32,
+            "span_id": "0" * 16,
+            "job_id": job_id,
+        }

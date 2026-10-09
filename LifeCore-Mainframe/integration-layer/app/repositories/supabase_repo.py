@@ -16,6 +16,7 @@ Padrões:
 Erros do Supabase são propagados como RuntimeError com contexto.
 Tabelas com migration pendente (PGRST205) retornam None/[] silenciosamente.
 """
+
 from __future__ import annotations
 
 import logging
@@ -31,6 +32,7 @@ _TABELAS_INDISPONIVEIS: set[str] = set()
 
 def _sb():
     from app.services.supabase_client import get_client
+
     return get_client()
 
 
@@ -54,8 +56,10 @@ def _is_table_missing(exc: Exception) -> bool:
         or "schema cache" in msg
         or "schema_cache" in msg
         or (hasattr(exc, "code") and getattr(exc, "code", "") == "PGRST205")
-        or (isinstance(getattr(exc, "args", None), tuple) and
-            any("PGRST205" in str(a) or "schema cache" in str(a) for a in exc.args))
+        or (
+            isinstance(getattr(exc, "args", None), tuple)
+            and any("PGRST205" in str(a) or "schema cache" in str(a) for a in exc.args)
+        )
     )
 
 

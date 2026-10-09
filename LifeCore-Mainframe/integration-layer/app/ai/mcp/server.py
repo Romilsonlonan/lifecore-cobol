@@ -24,6 +24,7 @@ Prompts:
   diagnosticar_abend        — template para análise de abend
   revisar_job_faturamento   — checklist pré-execução do FATURA01
 """
+
 from __future__ import annotations
 
 import json
@@ -47,7 +48,7 @@ def build_mcp_server():
         )
         return None
 
-    from app.ai.agents.tools import execute_tool, TOOLS_SCHEMA, _ABEND_CATALOG
+    from app.ai.agents.tools import _ABEND_CATALOG, execute_tool
     from app.ai.rag.engine import get_rag_engine
 
     mcp = FastMCP(
@@ -93,7 +94,11 @@ def build_mcp_server():
         """
         result = execute_tool(
             "analisar_abend",
-            {"codigo_abend": codigo_abend, "nome_programa": nome_programa, "contexto": contexto},
+            {
+                "codigo_abend": codigo_abend,
+                "nome_programa": nome_programa,
+                "contexto": contexto,
+            },
         )
         return json.dumps(result, ensure_ascii=False, indent=2)
 
@@ -171,7 +176,9 @@ def build_mcp_server():
     # ── Prompts ───────────────────────────────────────────────────────────────
 
     @mcp.prompt()
-    def diagnosticar_abend(codigo: str, programa: str, log_trecho: str = "") -> list[dict]:
+    def diagnosticar_abend(
+        codigo: str, programa: str, log_trecho: str = ""
+    ) -> list[dict]:
         """Template de análise de abend para o assistente."""
         return [
             {

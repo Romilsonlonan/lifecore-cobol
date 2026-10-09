@@ -20,12 +20,12 @@ Depois:
   # Quantização após fine-tuning:
   # llama.cpp: ./quantize model.gguf model-q4_k_m.gguf Q4_K_M
 """
+
 from __future__ import annotations
 
+import argparse
 import json
 import logging
-import argparse
-from pathlib import Path
 from typing import Literal
 
 logger = logging.getLogger(__name__)
@@ -43,7 +43,6 @@ SYSTEM_PROMPT = (
 # Expandir com exemplos reais do RUNBOOK e logs de produção
 
 RAW_PAIRS: list[tuple[str, str, str]] = [
-
     # ── Abends ────────────────────────────────────────────────────────────────
     (
         "Explique o abend S0C7 e como corrigi-lo em um programa COBOL com campos COMP-3.",
@@ -94,7 +93,6 @@ RAW_PAIRS: list[tuple[str, str, str]] = [
             "usando o GDG de controle."
         ),
     ),
-
     # ── JCL ───────────────────────────────────────────────────────────────────
     (
         "Como funciona o parâmetro COND no JCL e como usá-lo no ciclo LCDIA01?",
@@ -132,7 +130,6 @@ RAW_PAIRS: list[tuple[str, str, str]] = [
             "corrompida é descartada e a anterior ainda existe."
         ),
     ),
-
     # ── DB2 e SQL embutido ────────────────────────────────────────────────────
     (
         "Mostre como usar um cursor DB2 em COBOL para percorrer a tabela FATURA.",
@@ -171,7 +168,6 @@ RAW_PAIRS: list[tuple[str, str, str]] = [
             "Faça COMMIT a cada 1.000 registros para evitar -911."
         ),
     ),
-
     # ── Negócio (VGC/GLB) ────────────────────────────────────────────────────
     (
         "Quais são os cinco tipos de capital segurado suportados pelo CALCCAP?",
@@ -208,7 +204,6 @@ RAW_PAIRS: list[tuple[str, str, str]] = [
             "a fatura mensal por estipulante."
         ),
     ),
-
     # ── PCI e Segurança ───────────────────────────────────────────────────────
     (
         "Como o LifeCore garante conformidade PCI-DSS no processamento de pagamentos?",
@@ -231,11 +226,12 @@ RAW_PAIRS: list[tuple[str, str, str]] = [
 
 # ── Formatadores ──────────────────────────────────────────────────────────────
 
+
 def to_alpaca(instruction: str, input_ctx: str, output: str) -> dict:
     return {
         "instruction": instruction,
-        "input":       input_ctx,
-        "output":      output,
+        "input": input_ctx,
+        "output": output,
     }
 
 
@@ -244,8 +240,8 @@ def to_sharegpt(instruction: str, input_ctx: str, output: str) -> dict:
     return {
         "conversations": [
             {"from": "system", "value": SYSTEM_PROMPT},
-            {"from": "human",  "value": human},
-            {"from": "gpt",    "value": output},
+            {"from": "human", "value": human},
+            {"from": "gpt", "value": output},
         ]
     }
 
@@ -254,8 +250,8 @@ def to_chatml(instruction: str, input_ctx: str, output: str) -> dict:
     human = instruction if not input_ctx else f"{instruction}\n\nContexto: {input_ctx}"
     return {
         "messages": [
-            {"role": "system",    "content": SYSTEM_PROMPT},
-            {"role": "user",      "content": human},
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": human},
             {"role": "assistant", "content": output},
         ]
     }
@@ -264,9 +260,9 @@ def to_chatml(instruction: str, input_ctx: str, output: str) -> dict:
 def build_dataset(fmt: Format = "chatml") -> list[dict]:
     """Constrói o dataset no formato especificado."""
     converters = {
-        "alpaca":   to_alpaca,
+        "alpaca": to_alpaca,
         "sharegpt": to_sharegpt,
-        "chatml":   to_chatml,
+        "chatml": to_chatml,
     }
     fn = converters[fmt]
     return [fn(instr, ctx, out) for instr, ctx, out in RAW_PAIRS]
@@ -276,8 +272,7 @@ def save_dataset(path: str, fmt: Format = "chatml") -> int:
     """Salva o dataset em JSONL. Retorna o número de exemplos."""
     items = build_dataset(fmt)
     with open(path, "w", encoding="utf-8") as f:
-        for item in items:
-            f.write(json.dumps(item, ensure_ascii=False) + "\n")
+        f.writelines(json.dumps(item, ensure_ascii=False) + "\n" for item in items)
     logger.info("Dataset salvo: %s (%d exemplos, formato=%s)", path, len(items), fmt)
     return len(items)
 
@@ -288,18 +283,17 @@ def get_stats(dataset: list[dict] | None = None) -> dict:
         dataset = build_dataset("chatml")
     total = len(dataset)
     avg_output_len = sum(
-        len(item["messages"][2]["content"].split())
-        for item in dataset
+        len(item["messages"][2]["content"].split()) for item in dataset
     ) / max(1, total)
     return {
         "total_examples": total,
-        "format":         "chatml",
+        "format": "chatml",
         "avg_output_words": round(avg_output_len, 1),
         "system_prompt_chars": len(SYSTEM_PROMPT),
         "categories": {
             "abend": 3,
-            "jcl":   2,
-            "db2":   1,
+            "jcl": 2,
+            "db2": 1,
             "negocio": 2,
             "seguranca": 1,
         },
@@ -308,10 +302,14 @@ def get_stats(dataset: list[dict] | None = None) -> dict:
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    parser = argparse.ArgumentParser(description="Gera dataset de fine-tuning do LifeCore.")
-    parser.add_argument("--format",  choices=["alpaca", "sharegpt", "chatml"], default="chatml")
-    parser.add_argument("--output",  default="lifecore_finetune.jsonl")
-    parser.add_argument("--stats",   action="store_true")
+    parser = argparse.ArgumentParser(
+        description="Gera dataset de fine-tuning do LifeCore."
+    )
+    parser.add_argument(
+        "--format", choices=["alpaca", "sharegpt", "chatml"], default="chatml"
+    )
+    parser.add_argument("--output", default="lifecore_finetune.jsonl")
+    parser.add_argument("--stats", action="store_true")
     args = parser.parse_args()
 
     if args.stats:

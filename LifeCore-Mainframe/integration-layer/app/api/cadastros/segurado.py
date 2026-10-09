@@ -5,10 +5,11 @@ POST   /api/cadastros/segurados
 GET    /api/cadastros/segurados/{cd_cpf}
 PUT    /api/cadastros/segurados/{cd_cpf}
 """
+
 from datetime import datetime
+
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
-from typing import Optional
 
 from app.schemas.lifecore import StatusGeralEnum
 
@@ -16,22 +17,24 @@ router = APIRouter()
 
 
 class SeguradoCreate(BaseModel):
-    cd_cpf:         str     = Field(..., min_length=11, max_length=11, description="CPF sem pontuação")
-    nm_segurado:    str     = Field(..., max_length=80)
-    dt_nascimento:  str     = Field(..., pattern=r"^\d{8}$", description="AAAAMMDD")
-    cd_sexo:        str     = Field(..., pattern=r"^[MFI]$", description="M/F/I")
-    nm_mae:         Optional[str] = Field(None, max_length=80)
-    cd_empresa:     int
-    nr_matricula:   Optional[str] = Field(None, max_length=20)
-    vl_salario:     Optional[float] = None
-    cd_cargo:       Optional[str] = Field(None, max_length=6)
+    cd_cpf: str = Field(
+        ..., min_length=11, max_length=11, description="CPF sem pontuação"
+    )
+    nm_segurado: str = Field(..., max_length=80)
+    dt_nascimento: str = Field(..., pattern=r"^\d{8}$", description="AAAAMMDD")
+    cd_sexo: str = Field(..., pattern=r"^[MFI]$", description="M/F/I")
+    nm_mae: str | None = Field(None, max_length=80)
+    cd_empresa: int
+    nr_matricula: str | None = Field(None, max_length=20)
+    vl_salario: float | None = None
+    cd_cargo: str | None = Field(None, max_length=6)
 
 
 class SeguradoResponse(SeguradoCreate):
-    cd_segurado:    int
-    cd_status:      StatusGeralEnum
-    dt_inclusao:    str
-    ts_inclusao:    datetime
+    cd_segurado: int
+    cd_status: StatusGeralEnum
+    dt_inclusao: str
+    ts_inclusao: datetime
 
     class Config:
         from_attributes = True
