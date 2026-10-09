@@ -5,6 +5,7 @@ GET /api/painel
 Lê dados do Supabase (apolices, sinistros, propostas, coberturas).
 Fallback para stores in-memory quando Supabase não estiver configurado.
 """
+
 from __future__ import annotations
 
 import logging
@@ -29,6 +30,7 @@ router = APIRouter()
 def _sb_ok(table: str = "apolices") -> bool:
     try:
         from app.repositories.supabase_repo import sb_available
+
         return sb_available(table)
     except Exception:
         return False
@@ -51,46 +53,103 @@ def painel():
     if _sb_ok("apolices"):
         try:
             from app.repositories import supabase_repo as sr
+            from app.services.supabase_client import get_client
 
+            # ── Apólices: lê tanto emissao/apolices quanto portal/estipulantes ──
             apolices_rows = sr.get_all("apolices")
-            total_apolices = len(apolices_rows)
-            apolices_ativas = sum(1 for a in apolices_rows if a.get("cd_status") == StatusApoliceEnum.ATIVA)
+            apolices_ativas = sum(
+                1 for a in apolices_rows if a.get("cd_status") in ("AT", StatusApoliceEnum.ATIVA)
+            )
+            apolices_canceladas = sum(
+                1
+                for a in apolices_rows
+                if a.get("cd_status") in ("CA", StatusApoliceEnum.CANCELADA)
+            )
             premio_mes = sum(float(a.get("vl_premio_bruto") or 0) for a in apolices_rows)
 
+            # Portal/estipulantes: apólices cadastradas pelo portal do corretor
+            sb = get_client()
+            est_rows = sb.table("estipulantes").select("nr_apolice,cd_status").execute().data or []
+            apolices_ativas += sum(1 for e in est_rows if e.get("cd_status") in ("AT", "VI"))
+            apolices_canceladas += sum(1 for e in est_rows if e.get("cd_status") == "CA")
+
+            # ── Sinistros ──────────────────────────────────────────────────────
             sin_rows = sr.get_all("sinistros")
             sinistros_abertos = sum(
-                1 for s in sin_rows
-                if s["cd_status"] in (StatusSinistroEnum.ABERTO, StatusSinistroEnum.EM_ANALISE)
+                1
+                for s in sin_rows
+                if s["cd_status"]
+                in (
+                    "AB",
+                    "EA",
+                    StatusSinistroEnum.ABERTO,
+                    StatusSinistroEnum.EM_ANALISE,
+                )
             )
 
-            # Segurados ativos — tabela coberturas (Supabase portal)
-            try:
-                cob_rows = sr.get_all("coberturas", filters={"cd_status": "AT"})
-                segurados_ativos = len({c["cd_cpf"] for c in cob_rows})
-            except Exception:
+            # ── Segurados ativos: coberturas com cd_status AT ──────────────────
+            cob_rows = sr.get_all("coberturas", filters={"cd_status": "AT"})
+            segurados_ativos = len({c["cd_cpf"] for c in cob_rows})
+            # Se não houver coberturas, usa apolices_ativas como aproximação
+            if segurados_ativos == 0 and apolices_ativas > 0:
                 segurados_ativos = apolices_ativas
 
+            # ── Propostas ──────────────────────────────────────────────────────
             prop_rows = sr.get_all("propostas")
             total_prop = len(prop_rows) or 1
-            em_analise  = sum(1 for p in prop_rows if p.get("cd_status") == StatusPropostaEnum.EM_ANALISE)
-            aceit_auto  = sum(1 for p in prop_rows if p.get("cd_status") == StatusPropostaEnum.ACEITACAO_AUTO)
-            pend_doc    = sum(1 for p in prop_rows if p.get("cd_status") == StatusPropostaEnum.PENDENTE_DOC)
-            recusadas   = sum(1 for p in prop_rows if p.get("cd_status") == StatusPropostaEnum.RECUSADA)
-
-            impressoes_hoje = 0  # tabela controle_impressao — futura migração
+            em_analise = sum(
+                1 for p in prop_rows if p.get("cd_status") in ("AN", StatusPropostaEnum.EM_ANALISE)
+            )
+            aceit_auto = sum(
+                1
+                for p in prop_rows
+                if p.get("cd_status") in ("AA", StatusPropostaEnum.ACEITACAO_AUTO)
+            )
+            pend_doc = sum(
+                1
+                for p in prop_rows
+                if p.get("cd_status") in ("PD", StatusPropostaEnum.PENDENTE_DOC)
+            )
+            recusadas = sum(
+                1 for p in prop_rows if p.get("cd_status") in ("RC", StatusPropostaEnum.RECUSADA)
+            )
 
             return PainelResponse(
                 kpis=[
-                    KPICard(titulo="Apólices Vigentes",  valor=apolices_ativas,        variacao_pct=2.3,  tendencia="ALTA"),
-                    KPICard(titulo="Sinistros Abertos",  valor=sinistros_abertos,       variacao_pct=-5.1, tendencia="BAIXA"),
-                    KPICard(titulo="Segurados Ativos",   valor=segurados_ativos,        variacao_pct=1.8,  tendencia="ALTA"),
-                    KPICard(titulo="Prêmio Mês (R$)",    valor=round(premio_mes, 2),    variacao_pct=3.7,  tendencia="ALTA"),
+                    KPICard(
+                        titulo="Apólices Vigentes",
+                        valor=apolices_ativas,
+                        variacao_pct=0.0,
+                        tendencia="ESTAVEL",
+                    ),
+                    KPICard(
+                        titulo="Apólices Canceladas",
+                        valor=apolices_canceladas,
+                        variacao_pct=0.0,
+                        tendencia="ESTAVEL",
+                    ),
+                    KPICard(
+                        titulo="Segurados Ativos",
+                        valor=segurados_ativos,
+                        variacao_pct=0.0,
+                        tendencia="ESTAVEL",
+                    ),
+                    KPICard(
+                        titulo="Sinistros Abertos",
+                        valor=sinistros_abertos,
+                        variacao_pct=0.0,
+                        tendencia="ESTAVEL",
+                    ),
                 ],
                 pipeline_aceitacao=PipelineAceitacao(
-                    em_analise=em_analise,      em_analise_pct=round(em_analise / total_prop * 100, 1),
-                    aceitacao_auto=aceit_auto,  aceitacao_auto_pct=round(aceit_auto / total_prop * 100, 1),
-                    pendente_doc=pend_doc,      pendente_doc_pct=round(pend_doc / total_prop * 100, 1),
-                    recusadas=recusadas,        recusadas_pct=round(recusadas / total_prop * 100, 1),
+                    em_analise=em_analise,
+                    em_analise_pct=round(em_analise / total_prop * 100, 1),
+                    aceitacao_auto=aceit_auto,
+                    aceitacao_auto_pct=round(aceit_auto / total_prop * 100, 1),
+                    pendente_doc=pend_doc,
+                    pendente_doc_pct=round(pend_doc / total_prop * 100, 1),
+                    recusadas=recusadas,
+                    recusadas_pct=round(recusadas / total_prop * 100, 1),
                 ),
                 ultimas_acoes=[
                     UltimaAcao(
@@ -101,7 +160,7 @@ def painel():
                         nr_referencia=None,
                     ),
                 ],
-                impressoes_hoje=impressoes_hoje,
+                impressoes_hoje=0,
                 data_hora=datetime.now(UTC),
             )
         except Exception as exc:
@@ -115,35 +174,59 @@ def painel():
     total_apolices = len(_APOLICES)
     apolices_ativas = _contar(_APOLICES, "cd_status", StatusApoliceEnum.ATIVA)
     sinistros_abertos = sum(
-        1 for s in _SINISTROS.values()
+        1
+        for s in _SINISTROS.values()
         if s["cd_status"] in (StatusSinistroEnum.ABERTO, StatusSinistroEnum.EM_ANALISE)
     )
     premio_mes = _somar(_APOLICES, "vl_premio_bruto")
     segurados_ativos = apolices_ativas
 
     total_prop = len(_PROPOSTAS) or 1
-    em_analise  = _contar(_PROPOSTAS, "cd_status", StatusPropostaEnum.EM_ANALISE)
-    aceit_auto  = _contar(_PROPOSTAS, "cd_status", StatusPropostaEnum.ACEITACAO_AUTO)
-    pend_doc    = _contar(_PROPOSTAS, "cd_status", StatusPropostaEnum.PENDENTE_DOC)
-    recusadas   = _contar(_PROPOSTAS, "cd_status", StatusPropostaEnum.RECUSADA)
+    em_analise = _contar(_PROPOSTAS, "cd_status", StatusPropostaEnum.EM_ANALISE)
+    aceit_auto = _contar(_PROPOSTAS, "cd_status", StatusPropostaEnum.ACEITACAO_AUTO)
+    pend_doc = _contar(_PROPOSTAS, "cd_status", StatusPropostaEnum.PENDENTE_DOC)
+    recusadas = _contar(_PROPOSTAS, "cd_status", StatusPropostaEnum.RECUSADA)
 
     impressoes_hoje = sum(
-        c["nr_pendentes"] for c in _CONTROLES.values()
-        if c["dt_movimento_contabil"] == hoje
+        c["nr_pendentes"] for c in _CONTROLES.values() if c["dt_movimento_contabil"] == hoje
     )
 
     return PainelResponse(
         kpis=[
-            KPICard(titulo="Apólices Vigentes", valor=apolices_ativas,     variacao_pct=2.3,  tendencia="ALTA"),
-            KPICard(titulo="Sinistros Abertos", valor=sinistros_abertos,    variacao_pct=-5.1, tendencia="BAIXA"),
-            KPICard(titulo="Segurados Ativos",  valor=segurados_ativos,     variacao_pct=1.8,  tendencia="ALTA"),
-            KPICard(titulo="Prêmio Mês (R$)",   valor=round(premio_mes, 2), variacao_pct=3.7,  tendencia="ALTA"),
+            KPICard(
+                titulo="Apólices Vigentes",
+                valor=apolices_ativas,
+                variacao_pct=2.3,
+                tendencia="ALTA",
+            ),
+            KPICard(
+                titulo="Sinistros Abertos",
+                valor=sinistros_abertos,
+                variacao_pct=-5.1,
+                tendencia="BAIXA",
+            ),
+            KPICard(
+                titulo="Segurados Ativos",
+                valor=segurados_ativos,
+                variacao_pct=1.8,
+                tendencia="ALTA",
+            ),
+            KPICard(
+                titulo="Prêmio Mês (R$)",
+                valor=round(premio_mes, 2),
+                variacao_pct=3.7,
+                tendencia="ALTA",
+            ),
         ],
         pipeline_aceitacao=PipelineAceitacao(
-            em_analise=em_analise,      em_analise_pct=round(em_analise / total_prop * 100, 1),
-            aceitacao_auto=aceit_auto,  aceitacao_auto_pct=round(aceit_auto / total_prop * 100, 1),
-            pendente_doc=pend_doc,      pendente_doc_pct=round(pend_doc / total_prop * 100, 1),
-            recusadas=recusadas,        recusadas_pct=round(recusadas / total_prop * 100, 1),
+            em_analise=em_analise,
+            em_analise_pct=round(em_analise / total_prop * 100, 1),
+            aceitacao_auto=aceit_auto,
+            aceitacao_auto_pct=round(aceit_auto / total_prop * 100, 1),
+            pendente_doc=pend_doc,
+            pendente_doc_pct=round(pend_doc / total_prop * 100, 1),
+            recusadas=recusadas,
+            recusadas_pct=round(recusadas / total_prop * 100, 1),
         ),
         ultimas_acoes=[
             UltimaAcao(
