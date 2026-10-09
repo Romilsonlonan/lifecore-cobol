@@ -80,9 +80,7 @@ class ConfigFaturamentoRequest(BaseModel):
         max_length=120,
         description="E-mail que recebe a fatura (padrão: contato da apólice)",
     )
-    cd_email_copia: str | None = Field(
-        None, max_length=120, description="CC para cópia da fatura"
-    )
+    cd_email_copia: str | None = Field(None, max_length=120, description="CC para cópia da fatura")
 
     # Observações gerais
     ds_observacao: str | None = Field(None, max_length=300)
@@ -117,9 +115,7 @@ class SubestipulanteCreate(BaseModel):
     nm_nome_reduzido: str | None = Field(None, max_length=30)
     cd_email: str | None = Field(None, max_length=120)
     nr_telefone: str | None = Field(None, max_length=20)
-    nm_responsavel: str | None = Field(
-        None, max_length=80, description="Nome do responsável de RH"
-    )
+    nm_responsavel: str | None = Field(None, max_length=80, description="Nome do responsável de RH")
     cd_email_responsavel: str | None = Field(None, max_length=120)
     dt_inclusao_apolice: str = Field(
         ..., pattern=r"^\d{8}$", description="Data de inclusão na apólice"
@@ -142,9 +138,7 @@ class AlterarSubestipulanteRequest(BaseModel):
         ..., max_length=4, description="Código do motivo (ex: R001=desligamento)"
     )
     ds_motivo: str = Field(..., max_length=200)
-    dt_vigencia: str = Field(
-        ..., pattern=r"^\d{8}$", description="Data de vigência da alteração"
-    )
+    dt_vigencia: str = Field(..., pattern=r"^\d{8}$", description="Data de vigência da alteração")
     id_usuario: str = Field(..., max_length=20)
 
 
@@ -218,9 +212,7 @@ class TransferenciaCnpjRequest(BaseModel):
 
 
 class CancelamentoRequest(BaseModel):
-    cd_motivo: str = Field(
-        ..., max_length=4, description="Código do motivo de cancelamento"
-    )
+    cd_motivo: str = Field(..., max_length=4, description="Código do motivo de cancelamento")
     ds_motivo: str = Field(..., max_length=300)
     dt_cancelamento: str = Field(..., pattern=r"^\d{8}$")
     fl_devolver_premio: str = Field(
@@ -248,7 +240,9 @@ class SuspensaoTemporariaRequest(BaseModel):
     tp_origem: str = Field(
         ...,
         pattern=r"^(CLIENTE|JUDICIAL)$",
-        description="CLIENTE=a pedido do cliente · JUDICIAL=ordem judicial (prêmio pago pela empresa)",
+        description=(
+            "CLIENTE=a pedido do cliente · " "JUDICIAL=ordem judicial (prêmio pago pela empresa)"
+        ),
     )
     ds_motivo: str = Field(..., max_length=300)
     dt_inicio_suspensao: str = Field(..., pattern=r"^\d{8}$")
@@ -258,7 +252,9 @@ class SuspensaoTemporariaRequest(BaseModel):
         description="Data prevista para reativação (obrigatória para JUDICIAL)",
     )
     nr_processo_judicial: str | None = Field(
-        None, max_length=30, description="Número do processo (apenas para JUDICIAL)"
+        None,
+        max_length=30,
+        description="Número do processo (apenas para JUDICIAL)",
     )
     nm_orgao_judicial: str | None = Field(
         None, max_length=80, description="Órgão/vara responsável (apenas para JUDICIAL)"
@@ -299,6 +295,7 @@ class HistoricoRequest(BaseModel):
 def _get_apolice(nr_apolice: str) -> dict:
     """Busca apólice em memória; se não encontrar, hidrata a partir do Supabase."""
     import logging as _log
+
     _logger = _log.getLogger(__name__)
 
     from app.api.emissao.proposta import _APOLICES
@@ -309,8 +306,9 @@ def _get_apolice(nr_apolice: str) -> dict:
 
     # Fallback: hidrata a partir do Supabase (apólices criadas pelo Portal do Corretor)
     try:
-        from app.core.config import settings
         from supabase import create_client
+
+        from app.core.config import settings
 
         url = str(settings.supabase_url or "")
         key = str(settings.supabase_service_key or settings.supabase_anon_key or "")
@@ -319,7 +317,9 @@ def _get_apolice(nr_apolice: str) -> dict:
         if url and "SEU-PROJETO" not in url and key:
             sb = create_client(url, key)
             res = sb.table("estipulantes").select("*").eq("nr_apolice", nr_apolice).execute()
-            _logger.warning("_get_apolice Supabase: %d rows para %s", len(res.data or []), nr_apolice)
+            _logger.warning(
+                "_get_apolice Supabase: %d rows para %s", len(res.data or []), nr_apolice
+            )
             if res.data:
                 row = res.data[0]
                 hydrated = {
@@ -343,10 +343,16 @@ def _get_apolice(nr_apolice: str) -> dict:
                     "_supabase_row": row,
                 }
                 _APOLICES[nr_apolice] = hydrated
-                _logger.warning("_get_apolice hydrated OK: %s status=%s", nr_apolice, hydrated["cd_status"])
+                _logger.warning(
+                    "_get_apolice hydrated OK: %s status=%s",
+                    nr_apolice,
+                    hydrated["cd_status"],
+                )
                 return hydrated
         else:
-            _logger.error("_get_apolice: Supabase não configurado! url=%r key_len=%d", url, len(key))
+            _logger.error(
+                "_get_apolice: Supabase não configurado! url=%r key_len=%d", url, len(key)
+            )
     except Exception as _e:
         _logger.error("_get_apolice fallback falhou para %s: %s", nr_apolice, _e, exc_info=True)
 
@@ -358,8 +364,9 @@ def _persistir_status_supabase(nr_apolice: str, apolice: dict) -> None:
     if "_supabase_row" not in apolice:
         return  # apólice criada em memória pura, sem registro Supabase
     try:
-        from app.core.config import settings
         from supabase import create_client
+
+        from app.core.config import settings
 
         url = str(settings.supabase_url)
         key = settings.supabase_service_key or settings.supabase_anon_key
@@ -369,9 +376,15 @@ def _persistir_status_supabase(nr_apolice: str, apolice: dict) -> None:
         update: dict = {}
         # Campos de status — só envia se a coluna existir (migração v2)
         for campo in (
-            "cd_status", "dt_cancelamento", "ds_motivo_cancelamento",
-            "tp_suspensao", "dt_inicio_suspensao", "dt_prev_reativacao",
-            "nr_processo_judicial", "nm_orgao_judicial", "fl_cobranca_suspensa",
+            "cd_status",
+            "dt_cancelamento",
+            "ds_motivo_cancelamento",
+            "tp_suspensao",
+            "dt_inicio_suspensao",
+            "dt_prev_reativacao",
+            "nr_processo_judicial",
+            "nm_orgao_judicial",
+            "fl_cobranca_suspensa",
             "cd_subestipulante_suc",
         ):
             if campo in apolice and apolice[campo] is not None:
@@ -400,6 +413,226 @@ def _registrar(
             "ds_valor_depois": depois,
         }
     )
+    # Persiste no Supabase silenciosamente
+    try:
+        from app.repositories.supabase_repo import sb_available
+
+        if sb_available("historico_apolice"):
+            from app.repositories import supabase_repo as sr
+
+            sr.insert(
+                "historico_apolice",
+                {
+                    "nr_apolice": nr_apolice,
+                    "tp_acao": tp_acao,
+                    "ds_descricao": descricao,
+                    "id_usuario": usuario,
+                    "ds_valor_antes": antes,
+                    "ds_valor_depois": depois,
+                },
+            )
+    except Exception:
+        pass
+
+
+# ── Helpers Supabase para config/subestipulantes/contatos ─────────────────────
+
+
+def _cfg_get(nr_apolice: str) -> dict | None:
+    """Busca config de faturamento: Supabase → in-memory."""
+    try:
+        from app.repositories.supabase_repo import sb_available
+
+        if sb_available("config_faturamento"):
+            from app.repositories import supabase_repo as sr
+
+            return sr.get_one("config_faturamento", {"nr_apolice": nr_apolice})
+    except Exception:
+        pass
+    return _CONFIG.get(nr_apolice)
+
+
+def _cfg_save(nr_apolice: str, cfg: dict) -> None:
+    """Persiste config de faturamento: Supabase + in-memory."""
+    _CONFIG[nr_apolice] = cfg
+    try:
+        from app.repositories.supabase_repo import sb_available
+
+        if sb_available("config_faturamento"):
+            from app.repositories import supabase_repo as sr
+
+            sr.upsert("config_faturamento", cfg, "nr_apolice")
+    except Exception:
+        pass
+
+
+def _sub_list(nr_apolice: str, cd_status: str | None = None) -> list:
+    """Lista subestipulantes: Supabase → in-memory."""
+    try:
+        from app.repositories.supabase_repo import sb_available
+
+        if sb_available("subestipulantes"):
+            from app.repositories import supabase_repo as sr
+
+            filters: dict = {"nr_apolice": nr_apolice}
+            if cd_status:
+                filters["cd_status"] = cd_status
+            return sr.get_all("subestipulantes", filters=filters)
+    except Exception:
+        pass
+    result = _SUBESTIPULANTES.get(nr_apolice, [])
+    if cd_status:
+        result = [s for s in result if s["cd_status"] == cd_status]
+    return result
+
+
+def _sub_insert(row: dict) -> dict:
+    """Insere subestipulante: Supabase → in-memory."""
+    nr = row["nr_apolice"]
+    try:
+        from app.repositories.supabase_repo import sb_available
+
+        if sb_available("subestipulantes"):
+            from app.repositories import supabase_repo as sr
+
+            inserted = sr.insert("subestipulantes", row)
+            if inserted:
+                return inserted
+    except Exception:
+        pass
+    # fallback in-memory
+    global _NEXT_SUBESTIP
+    row = {**row, "cd_subestipulante": _NEXT_SUBESTIP}
+    _SUBESTIPULANTES.setdefault(nr, []).append(row)
+    _NEXT_SUBESTIP += 1
+    return row
+
+
+def _sub_update(nr_apolice: str, cd_subestipulante: int, data: dict) -> dict | None:
+    """Atualiza subestipulante in-place: Supabase → in-memory."""
+    try:
+        from app.repositories.supabase_repo import sb_available
+
+        if sb_available("subestipulantes"):
+            from app.repositories import supabase_repo as sr
+
+            updated = sr.update(
+                "subestipulantes",
+                {"cd_subestipulante": cd_subestipulante},
+                data,
+            )
+            if updated:
+                return updated
+    except Exception:
+        pass
+    # fallback in-memory
+    for s in _SUBESTIPULANTES.get(nr_apolice, []):
+        if s["cd_subestipulante"] == cd_subestipulante:
+            s.update(data)
+            return s
+    return None
+
+
+def _con_list(nr_apolice: str) -> list:
+    """Lista contatos: Supabase → in-memory."""
+    try:
+        from app.repositories.supabase_repo import sb_available
+
+        if sb_available("contatos_apolice"):
+            from app.repositories import supabase_repo as sr
+
+            return sr.get_all("contatos_apolice", filters={"nr_apolice": nr_apolice})
+    except Exception:
+        pass
+    return _CONTATOS.get(nr_apolice, [])
+
+
+def _con_insert(row: dict) -> dict:
+    """Insere contato: Supabase → in-memory."""
+    nr = row["nr_apolice"]
+    try:
+        from app.repositories.supabase_repo import sb_available
+
+        if sb_available("contatos_apolice"):
+            from app.repositories import supabase_repo as sr
+
+            inserted = sr.insert("contatos_apolice", row)
+            if inserted:
+                return inserted
+    except Exception:
+        pass
+    # fallback in-memory
+    global _NEXT_CONTATO
+    row = {**row, "cd_contato": _NEXT_CONTATO}
+    _CONTATOS.setdefault(nr, []).append(row)
+    _NEXT_CONTATO += 1
+    return row
+
+
+def _con_update(nr_apolice: str, cd_contato: int, data: dict) -> dict | None:
+    """Atualiza contato: Supabase → in-memory."""
+    try:
+        from app.repositories.supabase_repo import sb_available
+
+        if sb_available("contatos_apolice"):
+            from app.repositories import supabase_repo as sr
+
+            updated = sr.update("contatos_apolice", {"cd_contato": cd_contato}, data)
+            if updated:
+                return updated
+    except Exception:
+        pass
+    for c in _CONTATOS.get(nr_apolice, []):
+        if c["cd_contato"] == cd_contato:
+            c.update(data)
+            return c
+    return None
+
+
+def _con_delete(nr_apolice: str, cd_contato: int) -> bool:
+    """Remove contato: Supabase → in-memory."""
+    try:
+        from app.repositories.supabase_repo import sb_available
+
+        if sb_available("contatos_apolice"):
+            from app.repositories import supabase_repo as sr
+
+            sr.delete("contatos_apolice", {"cd_contato": cd_contato})
+            return True
+    except Exception:
+        pass
+    lista = _CONTATOS.get(nr_apolice, [])
+    contato = next((c for c in lista if c["cd_contato"] == cd_contato), None)
+    if contato:
+        lista.remove(contato)
+        return True
+    return False
+
+
+def _historico_list(nr_apolice: str, tp_acao: str | None = None, limit: int = 50) -> list:
+    """Lista histórico: Supabase → in-memory."""
+    try:
+        from app.repositories.supabase_repo import sb_available
+
+        if sb_available("historico_apolice"):
+            from app.repositories import supabase_repo as sr
+
+            filters: dict = {"nr_apolice": nr_apolice}
+            if tp_acao:
+                filters["tp_acao"] = tp_acao
+            rows = sr.get_all(
+                "historico_apolice",
+                filters=filters,
+                order="dt_hora_acao",
+                limit=limit,
+            )
+            return rows
+    except Exception:
+        pass
+    result = _HISTORICO.get(nr_apolice, [])
+    if tp_acao:
+        result = [h for h in result if h["tp_acao"] == tp_acao]
+    return result[-limit:]
 
 
 def _proximo_vencimento(dia: int, competencia_ini: str) -> str:
@@ -428,7 +661,7 @@ def _proximo_vencimento(dia: int, competencia_ini: str) -> str:
 )
 def get_config_faturamento(nr_apolice: str):
     _get_apolice(nr_apolice)
-    cfg = _CONFIG.get(nr_apolice)
+    cfg = _cfg_get(nr_apolice)
     if not cfg:
         raise HTTPException(
             404,
@@ -446,7 +679,7 @@ def set_config_faturamento(
     nr_apolice: str, payload: ConfigFaturamentoRequest, id_usuario: str = "SISTEMA"
 ):
     _get_apolice(nr_apolice)
-    anterior = _CONFIG.get(nr_apolice, {}).copy()
+    anterior = _cfg_get(nr_apolice) or {}
     cfg = {
         "nr_apolice": nr_apolice,
         **payload.model_dump(),
@@ -456,7 +689,7 @@ def set_config_faturamento(
         "dt_ultima_atualizacao": datetime.today().strftime("%Y%m%d"),
         "id_usuario_atualizacao": id_usuario,
     }
-    _CONFIG[nr_apolice] = cfg
+    _cfg_save(nr_apolice, cfg)
     _registrar(
         nr_apolice,
         "CONFIG_FATURAMENTO",
@@ -478,16 +711,15 @@ def set_config_faturamento(
 )
 def mudar_vencimento(nr_apolice: str, payload: MudancaVencimentoRequest):
     _get_apolice(nr_apolice)
-    cfg = _CONFIG.get(nr_apolice)
+    cfg = _cfg_get(nr_apolice)
     if not cfg:
-        raise HTTPException(
-            404, detail="Configure o faturamento antes de alterar o vencimento."
-        )
+        raise HTTPException(404, detail="Configure o faturamento antes de alterar o vencimento.")
     antes = cfg["dia_vencimento"]
     cfg["dia_vencimento"] = payload.dia_vencimento_novo
     cfg["dt_ultima_atualizacao"] = datetime.today().strftime("%Y%m%d")
     cfg["id_usuario_atualizacao"] = payload.id_usuario
     cfg["dt_proximo_vencimento"] = payload.dt_vigencia
+    _cfg_save(nr_apolice, cfg)
     _registrar(
         nr_apolice,
         "MUDANCA_VENCIMENTO",
@@ -511,10 +743,7 @@ def mudar_vencimento(nr_apolice: str, payload: MudancaVencimentoRequest):
 )
 def listar_subestipulantes(nr_apolice: str, cd_status: str | None = None):
     _get_apolice(nr_apolice)
-    result = _SUBESTIPULANTES.get(nr_apolice, [])
-    if cd_status:
-        result = [s for s in result if s["cd_status"] == cd_status]
-    return result
+    return _sub_list(nr_apolice, cd_status)
 
 
 @router.post(
@@ -524,24 +753,19 @@ def listar_subestipulantes(nr_apolice: str, cd_status: str | None = None):
     summary="Adiciona subestipulante à apólice",
 )
 def adicionar_subestipulante(nr_apolice: str, payload: SubestipulanteCreate):
-    global _NEXT_SUBESTIP
     _get_apolice(nr_apolice)
-    lista = _SUBESTIPULANTES.setdefault(nr_apolice, [])
-    for s in lista:
+    # Verifica duplicata
+    for s in _sub_list(nr_apolice):
         if s["cd_cnpj"] == payload.cd_cnpj and s["cd_status"] != "CA":
-            raise HTTPException(
-                409, detail=f"CNPJ {payload.cd_cnpj} já está ativo nesta apólice."
-            )
-    subestip = {
-        "cd_subestipulante": _NEXT_SUBESTIP,
+            raise HTTPException(409, detail=f"CNPJ {payload.cd_cnpj} já está ativo nesta apólice.")
+    row = {
         "nr_apolice": nr_apolice,
         **payload.model_dump(),
         "cd_status": "AT",
         "dt_cancelamento": None,
         "ds_motivo_cancel": None,
     }
-    lista.append(subestip)
-    _NEXT_SUBESTIP += 1
+    subestip = _sub_insert(row)
     _registrar(
         nr_apolice,
         "SUBESTIP_INCLUS",
@@ -560,19 +784,19 @@ def cancelar_subestipulante(
     nr_apolice: str, cd_subestipulante: int, payload: AlterarSubestipulanteRequest
 ):
     _get_apolice(nr_apolice)
-    lista = _SUBESTIPULANTES.get(nr_apolice, [])
-    subestip = next(
-        (s for s in lista if s["cd_subestipulante"] == cd_subestipulante), None
-    )
+    lista = _sub_list(nr_apolice)
+    subestip = next((s for s in lista if s["cd_subestipulante"] == cd_subestipulante), None)
     if not subestip:
-        raise HTTPException(
-            404, detail=f"Subestipulante {cd_subestipulante} não encontrado."
-        )
+        raise HTTPException(404, detail=f"Subestipulante {cd_subestipulante} não encontrado.")
     if subestip["cd_status"] == "CA":
         raise HTTPException(409, detail="Subestipulante já cancelado.")
-    subestip["cd_status"] = "CA"
-    subestip["dt_cancelamento"] = payload.dt_vigencia
-    subestip["ds_motivo_cancel"] = f"[{payload.cd_motivo}] {payload.ds_motivo}"
+    data = {
+        "cd_status": "CA",
+        "dt_cancelamento": payload.dt_vigencia,
+        "ds_motivo_cancel": f"[{payload.cd_motivo}] {payload.ds_motivo}",
+    }
+    updated = _sub_update(nr_apolice, cd_subestipulante, data)
+    subestip = updated or {**subestip, **data}
     _registrar(
         nr_apolice,
         "SUBESTIP_CANCEL",
@@ -593,20 +817,18 @@ def suspender_subestipulante(
     nr_apolice: str, cd_subestipulante: int, payload: AlterarSubestipulanteRequest
 ):
     _get_apolice(nr_apolice)
-    lista = _SUBESTIPULANTES.get(nr_apolice, [])
-    subestip = next(
-        (s for s in lista if s["cd_subestipulante"] == cd_subestipulante), None
-    )
+    lista = _sub_list(nr_apolice)
+    subestip = next((s for s in lista if s["cd_subestipulante"] == cd_subestipulante), None)
     if not subestip:
-        raise HTTPException(
-            404, detail=f"Subestipulante {cd_subestipulante} não encontrado."
-        )
+        raise HTTPException(404, detail=f"Subestipulante {cd_subestipulante} não encontrado.")
     if subestip["cd_status"] != "AT":
-        raise HTTPException(
-            409, detail=f"Status {subestip['cd_status']} não permite suspensão."
-        )
-    subestip["cd_status"] = "SU"
-    subestip["ds_motivo_cancel"] = f"[{payload.cd_motivo}] {payload.ds_motivo}"
+        raise HTTPException(409, detail=f"Status {subestip['cd_status']} não permite suspensão.")
+    data = {
+        "cd_status": "SU",
+        "ds_motivo_cancel": f"[{payload.cd_motivo}] {payload.ds_motivo}",
+    }
+    updated = _sub_update(nr_apolice, cd_subestipulante, data)
+    subestip = updated or {**subestip, **data}
     _registrar(
         nr_apolice,
         "SUBESTIP_SUSPEN",
@@ -625,19 +847,14 @@ def suspender_subestipulante(
 )
 def reativar_subestipulante(nr_apolice: str, cd_subestipulante: int, id_usuario: str):
     _get_apolice(nr_apolice)
-    lista = _SUBESTIPULANTES.get(nr_apolice, [])
-    subestip = next(
-        (s for s in lista if s["cd_subestipulante"] == cd_subestipulante), None
-    )
+    lista = _sub_list(nr_apolice)
+    subestip = next((s for s in lista if s["cd_subestipulante"] == cd_subestipulante), None)
     if not subestip:
-        raise HTTPException(
-            404, detail=f"Subestipulante {cd_subestipulante} não encontrado."
-        )
+        raise HTTPException(404, detail=f"Subestipulante {cd_subestipulante} não encontrado.")
     if subestip["cd_status"] != "SU":
-        raise HTTPException(
-            409, detail="Somente subestipulantes suspensos podem ser reativados."
-        )
-    subestip["cd_status"] = "AT"
+        raise HTTPException(409, detail="Somente subestipulantes suspensos podem ser reativados.")
+    updated = _sub_update(nr_apolice, cd_subestipulante, {"cd_status": "AT"})
+    subestip = updated or {**subestip, "cd_status": "AT"}
     _registrar(
         nr_apolice,
         "SUBESTIP_REATIV",
@@ -661,7 +878,7 @@ def reativar_subestipulante(nr_apolice: str, cd_subestipulante: int, id_usuario:
 )
 def listar_contatos(nr_apolice: str):
     _get_apolice(nr_apolice)
-    return _CONTATOS.get(nr_apolice, [])
+    return _con_list(nr_apolice)
 
 
 @router.post(
@@ -671,17 +888,13 @@ def listar_contatos(nr_apolice: str):
     summary="Adiciona contato à apólice",
 )
 def adicionar_contato(nr_apolice: str, payload: ContatoCreate):
-    global _NEXT_CONTATO
     _get_apolice(nr_apolice)
-    lista = _CONTATOS.setdefault(nr_apolice, [])
-    contato = {
-        "cd_contato": _NEXT_CONTATO,
+    row = {
         "nr_apolice": nr_apolice,
         **payload.model_dump(),
         "cd_status": "AT",
     }
-    lista.append(contato)
-    _NEXT_CONTATO += 1
+    contato = _con_insert(row)
     _registrar(
         nr_apolice,
         "CONTATO_INCLUS",
@@ -698,12 +911,13 @@ def adicionar_contato(nr_apolice: str, payload: ContatoCreate):
 )
 def atualizar_contato(nr_apolice: str, cd_contato: int, payload: ContatoCreate):
     _get_apolice(nr_apolice)
-    lista = _CONTATOS.get(nr_apolice, [])
+    lista = _con_list(nr_apolice)
     contato = next((c for c in lista if c["cd_contato"] == cd_contato), None)
     if not contato:
         raise HTTPException(404, detail=f"Contato {cd_contato} não encontrado.")
     antes_email = contato.get("cd_email")
-    contato.update(payload.model_dump())
+    updated = _con_update(nr_apolice, cd_contato, payload.model_dump())
+    contato = updated or {**contato, **payload.model_dump()}
     if antes_email != payload.cd_email:
         _registrar(
             nr_apolice,
@@ -723,11 +937,11 @@ def atualizar_contato(nr_apolice: str, cd_contato: int, payload: ContatoCreate):
 )
 def remover_contato(nr_apolice: str, cd_contato: int, id_usuario: str = "SISTEMA"):
     _get_apolice(nr_apolice)
-    lista = _CONTATOS.get(nr_apolice, [])
+    lista = _con_list(nr_apolice)
     contato = next((c for c in lista if c["cd_contato"] == cd_contato), None)
     if not contato:
         raise HTTPException(404, detail=f"Contato {cd_contato} não encontrado.")
-    lista.remove(contato)
+    _con_delete(nr_apolice, cd_contato)
     _registrar(
         nr_apolice,
         "CONTATO_REMOVIDO",
@@ -792,13 +1006,18 @@ def renovar_apolice(nr_apolice: str, payload: RenovacaoRequest):
     _APOLICES[nr_nova] = nova_apolice
 
     # Copia config de faturamento se solicitado
-    if payload.fl_manter_config == "S" and nr_apolice in _CONFIG:
-        _CONFIG[nr_nova] = {**_CONFIG[nr_apolice], "nr_apolice": nr_nova}
+    if payload.fl_manter_config == "S":
+        cfg_orig = _cfg_get(nr_apolice)
+        if cfg_orig:
+            _cfg_save(nr_nova, {**cfg_orig, "nr_apolice": nr_nova})
 
     _registrar(
         nr_apolice,
         "RENOVACAO",
-        f"Apólice renovada → {nr_nova} ({payload.dt_inicio_nova_vigencia} a {payload.dt_fim_nova_vigencia})",
+        (
+            f"Apólice renovada → {nr_nova} "
+            f"({payload.dt_inicio_nova_vigencia} a {payload.dt_fim_nova_vigencia})"
+        ),
         payload.id_usuario,
     )
 
@@ -874,15 +1093,24 @@ def cancelar_apolice(nr_apolice: str, payload: CancelamentoRequest):
     apolice["ds_motivo_cancelamento"] = f"[{payload.cd_motivo}] {payload.ds_motivo}"
     apolice["id_usuario_cancel"] = payload.id_usuario
     # Cancela também todos os subestipulantes ativos/suspensos
-    for s in _SUBESTIPULANTES.get(nr_apolice, []):
+    for s in _sub_list(nr_apolice):
         if s["cd_status"] != "CA":
-            s["cd_status"] = "CA"
-            s["dt_cancelamento"] = payload.dt_cancelamento
-            s["ds_motivo_cancel"] = f"[CANCEL_TOTAL] {payload.ds_motivo}"
+            _sub_update(
+                nr_apolice,
+                s["cd_subestipulante"],
+                {
+                    "cd_status": "CA",
+                    "dt_cancelamento": payload.dt_cancelamento,
+                    "ds_motivo_cancel": f"[CANCEL_TOTAL] {payload.ds_motivo}",
+                },
+            )
     _registrar(
         nr_apolice,
         "CANCELAMENTO",
-        f"Cancelamento total da apólice e subestipulantes. Motivo: [{payload.cd_motivo}] {payload.ds_motivo}",
+        (
+            f"Cancelamento total da apólice e subestipulantes. "
+            f"Motivo: [{payload.cd_motivo}] {payload.ds_motivo}"
+        ),
         payload.id_usuario,
         "AT",
         "CA",
@@ -902,46 +1130,56 @@ def cancelar_apolice(nr_apolice: str, payload: CancelamentoRequest):
     "/cancelar/transferencia",
     summary="Cancela apólice principal transferindo para subestipulante",
 )
-def cancelar_com_transferencia(
-    nr_apolice: str, payload: CancelamentoTransferenciaRequest
-):
+def cancelar_com_transferencia(nr_apolice: str, payload: CancelamentoTransferenciaRequest):
     """Cancela a apólice principal mantendo a cobertura via um subestipulante sucessor.
     A apólice original fica com status CA e permanece no histórico para consultas."""
     apolice = _get_apolice(nr_apolice)
     if apolice["cd_status"] == "CA":
         raise HTTPException(409, detail="Apólice já cancelada.")
 
-    lista_sub = _SUBESTIPULANTES.get(nr_apolice, [])
+    lista_sub = _sub_list(nr_apolice)
+    cd_suc = payload.cd_subestipulante_sucessor
     sucessor = next(
-        (s for s in lista_sub if s["cd_subestipulante"] == payload.cd_subestipulante_sucessor),
+        (s for s in lista_sub if s["cd_subestipulante"] == cd_suc),
         None,
     )
     if not sucessor:
         raise HTTPException(
             404,
-            detail=f"Subestipulante {payload.cd_subestipulante_sucessor} não encontrado na apólice.",
+            detail=f"Subestipulante {cd_suc} não encontrado na apólice.",
         )
     if sucessor["cd_status"] != "AT":
         raise HTTPException(
             409,
-            detail=f"Subestipulante {payload.cd_subestipulante_sucessor} não está ativo (status={sucessor['cd_status']}).",
+            detail=(
+                f"Subestipulante {cd_suc} não está ativo " f"(status={sucessor['cd_status']})."
+            ),
         )
 
     # Demais subestipulantes (exceto o sucessor) são cancelados
     for s in lista_sub:
-        if s["cd_subestipulante"] != payload.cd_subestipulante_sucessor and s["cd_status"] != "CA":
-            s["cd_status"] = "CA"
-            s["dt_cancelamento"] = payload.dt_cancelamento
-            s["ds_motivo_cancel"] = f"[TRANSF_SUBESTIP] Transferência para subestipulante {payload.cd_subestipulante_sucessor}"
+        if s["cd_subestipulante"] != cd_suc and s["cd_status"] != "CA":
+            _sub_update(
+                nr_apolice,
+                s["cd_subestipulante"],
+                {
+                    "cd_status": "CA",
+                    "dt_cancelamento": payload.dt_cancelamento,
+                    "ds_motivo_cancel": (
+                        f"[TRANSF_SUBESTIP] Transferência para subestipulante "
+                        f"{payload.cd_subestipulante_sucessor}"
+                    ),
+                },
+            )
 
     # Marca a apólice principal como cancelada (permanece em histórico)
     apolice["cd_status"] = "CA"
     apolice["dt_cancelamento"] = payload.dt_cancelamento
     apolice["ds_motivo_cancelamento"] = (
         f"[{payload.cd_motivo}] {payload.ds_motivo} "
-        f"— transferida para subestipulante {payload.cd_subestipulante_sucessor} ({sucessor['nm_razao_social']})"
+        f"— transferida para subestipulante {cd_suc} ({sucessor['nm_razao_social']})"
     )
-    apolice["cd_subestipulante_sucessor"] = payload.cd_subestipulante_sucessor
+    apolice["cd_subestipulante_sucessor"] = cd_suc
     apolice["id_usuario_cancel"] = payload.id_usuario
 
     _registrar(
@@ -949,14 +1187,14 @@ def cancelar_com_transferencia(
         "CANCEL_TRANSF",
         (
             f"Apólice principal cancelada. Cobertura transferida para subestipulante "
-            f"{payload.cd_subestipulante_sucessor} ({sucessor['nm_razao_social']}). "
+            f"{cd_suc} ({sucessor['nm_razao_social']}). "
             f"Motivo: [{payload.cd_motivo}] {payload.ds_motivo}"
         ),
         payload.id_usuario,
         "AT",
-        f"CA→SUBESTIP_{payload.cd_subestipulante_sucessor}",
+        f"CA→SUBESTIP_{cd_suc}",
     )
-    apolice["cd_subestipulante_suc"] = payload.cd_subestipulante_sucessor
+    apolice["cd_subestipulante_suc"] = cd_suc
     _persistir_status_supabase(nr_apolice, apolice)
     return {
         "nr_apolice": nr_apolice,
@@ -964,7 +1202,7 @@ def cancelar_com_transferencia(
         "tp_cancelamento": "TRANSFERENCIA",
         "dt_cancelamento": payload.dt_cancelamento,
         "ds_motivo": f"[{payload.cd_motivo}] {payload.ds_motivo}",
-        "cd_subestipulante_sucessor": payload.cd_subestipulante_sucessor,
+        "cd_subestipulante_sucessor": cd_suc,
         "nm_subestipulante_sucessor": sucessor["nm_razao_social"],
         "fl_devolucao_premio": payload.fl_devolver_premio,
         "ds_obs": "Apólice principal mantida em histórico para consultas.",
@@ -975,9 +1213,7 @@ def cancelar_com_transferencia(
     "/cancelar/suspensao-temporaria",
     summary="Suspende temporariamente a apólice (sem cobrança)",
 )
-def suspender_temporariamente_apolice(
-    nr_apolice: str, payload: SuspensaoTemporariaRequest
-):
+def suspender_temporariamente_apolice(nr_apolice: str, payload: SuspensaoTemporariaRequest):
     """Suspende a apólice e todos os subestipulantes sem gerar cobrança durante o período.
     - CLIENTE: a pedido do cliente.
     - JUDICIAL: ordem judicial — prêmio pago pela empresa (não pelo estipulante contratante)."""
@@ -985,7 +1221,10 @@ def suspender_temporariamente_apolice(
     if apolice["cd_status"] not in ("AT",):
         raise HTTPException(
             409,
-            detail=f"Apólice está {apolice['cd_status']} — somente apólices ativas podem ser suspensas.",
+            detail=(
+                f"Apólice está {apolice['cd_status']} "
+                "— somente apólices ativas podem ser suspensas."
+            ),
         )
     if payload.tp_origem == "JUDICIAL":
         if not payload.dt_prev_reativacao:
@@ -995,10 +1234,16 @@ def suspender_temporariamente_apolice(
             )
 
     # Suspende todos os subestipulantes ativos
-    for s in _SUBESTIPULANTES.get(nr_apolice, []):
+    for s in _sub_list(nr_apolice):
         if s["cd_status"] == "AT":
-            s["cd_status"] = "SU"
-            s["ds_motivo_cancel"] = f"[SUSP_TEMP_{payload.tp_origem}] {payload.ds_motivo}"
+            _sub_update(
+                nr_apolice,
+                s["cd_subestipulante"],
+                {
+                    "cd_status": "SU",
+                    "ds_motivo_cancel": (f"[SUSP_TEMP_{payload.tp_origem}] {payload.ds_motivo}"),
+                },
+            )
 
     apolice["cd_status"] = "SU"
     apolice["tp_suspensao"] = payload.tp_origem
@@ -1013,7 +1258,11 @@ def suspender_temporariamente_apolice(
         f"Suspensão temporária ({payload.tp_origem}): {payload.ds_motivo}"
         + (f" | Processo: {payload.nr_processo_judicial}" if payload.nr_processo_judicial else "")
         + (f" | Órgão: {payload.nm_orgao_judicial}" if payload.nm_orgao_judicial else "")
-        + (f" | Prev. reativação: {payload.dt_prev_reativacao}" if payload.dt_prev_reativacao else "")
+        + (
+            f" | Prev. reativação: {payload.dt_prev_reativacao}"
+            if payload.dt_prev_reativacao
+            else ""
+        )
     )
     _registrar(
         nr_apolice,
@@ -1052,12 +1301,15 @@ def reativar_suspensao_apolice(nr_apolice: str, payload: ReativacaoSuspensaoRequ
     if apolice["cd_status"] != "SU":
         raise HTTPException(
             409,
-            detail=f"Apólice está {apolice['cd_status']} — somente apólices suspensas podem ser reativadas aqui.",
+            detail=(
+                f"Apólice está {apolice['cd_status']} "
+                "— somente apólices suspensas podem ser reativadas aqui."
+            ),
         )
 
-    for s in _SUBESTIPULANTES.get(nr_apolice, []):
+    for s in _sub_list(nr_apolice):
         if s["cd_status"] == "SU":
-            s["cd_status"] = "AT"
+            _sub_update(nr_apolice, s["cd_subestipulante"], {"cd_status": "AT"})
 
     apolice["cd_status"] = "AT"
     apolice["dt_reativacao_suspensao"] = payload.dt_reativacao
@@ -1066,7 +1318,7 @@ def reativar_suspensao_apolice(nr_apolice: str, payload: ReativacaoSuspensaoRequ
     _registrar(
         nr_apolice,
         "REATIV_SUSPENSAO",
-        f"Apólice reativada após suspensão temporária. Motivo: {payload.ds_motivo}",
+        f"Apólice reativada após suspensão. Motivo: {payload.ds_motivo}",
         payload.id_usuario,
         "SU",
         "AT",
@@ -1096,10 +1348,7 @@ def historico_apolice(
     limit: int = 50,
 ):
     _get_apolice(nr_apolice)
-    result = _HISTORICO.get(nr_apolice, [])
-    if tp_acao:
-        result = [h for h in result if h["tp_acao"] == tp_acao]
-    return result[-limit:]
+    return _historico_list(nr_apolice, tp_acao, limit)
 
 
 @router.post(
