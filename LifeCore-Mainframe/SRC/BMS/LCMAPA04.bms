@@ -1,0 +1,45 @@
+         PRINT NOGEN
+***********************************************************************
+* LCMAPA04 - LIFECORE IQ - CADASTRO DE ESTIPULANTE NO DB2             *
+***********************************************************************
+LCMAPA04 DFHMSD TYPE=&SYSPARM,                                         X
+               LANG=COBOL,                                             X
+               MODE=INOUT,                                             X
+               TERM=3270-2,                                            X
+               CTRL=FREEKB,                                            X
+               STORAGE=AUTO,                                           X
+               TIOAPFX=YES
+LCTESTIP DFHMDI SIZE=(24,80),                                          X
+               LINE=1,                                                 X
+               COLUMN=1
+         DFHMDF POS=(1,1),LENGTH=79,ATTRB=(PROT,BRT),                  X
+               COLOR=BLUE,                                             X
+               INITIAL='LIFECORE IQ - CADASTRO DE ESTIPULANTE'
+         DFHMDF POS=(3,4),LENGTH=14,ATTRB=(PROT,NORM),                 X
+               INITIAL='Codigo       :'
+         DFHMDF POS=(3,21),LENGTH=6,ATTRB=(NORM,IC,FSET),              X
+               COLOR=GREEN,NAME=LECOD
+         DFHMDF POS=(5,4),LENGTH=14,ATTRB=(PROT,NORM),                 X
+               INITIAL='Razao social :'
+         DFHMDF POS=(5,21),LENGTH=60,ATTRB=(NORM,FSET),                X
+               COLOR=GREEN,NAME=LERAZAO
+         DFHMDF POS=(7,4),LENGTH=14,ATTRB=(PROT,NORM),                 X
+               INITIAL='Nome reduzido:'
+         DFHMDF POS=(7,21),LENGTH=30,ATTRB=(NORM,FSET),                X
+               COLOR=GREEN,NAME=LEREDUZ
+         DFHMDF POS=(9,4),LENGTH=14,ATTRB=(PROT,NORM),                 X
+               INITIAL='CNPJ         :'
+         DFHMDF POS=(9,21),LENGTH=14,ATTRB=(NORM,FSET),                X
+               COLOR=GREEN,NAME=LECNPJ
+         DFHMDF POS=(11,4),LENGTH=14,ATTRB=(PROT,NORM),                X
+               INITIAL='Tipo         :'
+         DFHMDF POS=(11,21),LENGTH=2,ATTRB=(NORM,FSET),                X
+               COLOR=GREEN,NAME=LETIPO
+         DFHMDF POS=(11,25),LENGTH=25,ATTRB=(PROT,NORM),               X
+               INITIAL='ES = Estipulante'
+         DFHMDF POS=(15,4),LENGTH=70,ATTRB=(PROT,BRT),                 X
+               COLOR=YELLOW,NAME=LEMSG
+         DFHMDF POS=(22,4),LENGTH=70,ATTRB=(PROT,NORM),                X
+               INITIAL='ENTER=Gravar no DB2   PF3=Voltar ao menu'
+         DFHMSD TYPE=FINAL
+         END

@@ -1,0 +1,113 @@
+         PRINT NOGEN
+***********************************************************************
+* LCMAPA01 - LIFECORE IQ - MAPA BMS: TELA DE LOGIN                   *
+* Autor  : LifeCore IQ                                                *
+* Data   : 2026-10-04                                                 *
+* Versao : 1.0.0                                                      *
+* Trans  : LCIN                                                       *
+***********************************************************************
+LCMAPA01 DFHMSD TYPE=&SYSPARM,                                         X
+               LANG=COBOL,                                             X
+               MODE=INOUT,                                             X
+               TERM=3270-2,                                            X
+               CTRL=FREEKB,                                            X
+               STORAGE=AUTO,                                           X
+               TIOAPFX=YES
+***********************************************************************
+* MAPSET: LCMSET1  MAP: LCTLOGIN                                      *
+***********************************************************************
+LCTLOGIN DFHMDI SIZE=(24,80),                                          X
+               LINE=1,                                                 X
+               COLUMN=1
+*--- CABECALHO --------------------------------------------------------
+         DFHMDF POS=(1,1),                                             X
+               LENGTH=79,                                              X
+               ATTRB=(PROT,BRT),                                       X
+               COLOR=BLUE,                                             X
+               INITIAL='══════════════════════════════════════════════X
+══════════════════════════════'
+         DFHMDF POS=(2,2),                                             X
+               LENGTH=44,                                              X
+               ATTRB=(PROT,BRT),                                       X
+               COLOR=TURQUOISE,                                        X
+               INITIAL='  LIFECORE IQ  V1.0  -  LOGIN DO SISTEMA    '
+         DFHMDF POS=(3,1),                                             X
+               LENGTH=79,                                              X
+               ATTRB=(PROT,BRT),                                       X
+               COLOR=BLUE,                                             X
+               INITIAL='──────────────────────────────────────────────X
+──────────────────────────────'
+*--- TIPO DE ACESSO ---------------------------------------------------
+         DFHMDF POS=(6,16),                                            X
+               LENGTH=16,                                              X
+               ATTRB=(PROT,NORM),                                      X
+               COLOR=YELLOW,                                           X
+               INITIAL='Tipo de Acesso :'
+         DFHMDF POS=(6,33),                                            X
+               LENGTH=1,                                               X
+               ATTRB=(NORM,IC),                                        X
+               COLOR=GREEN,                                            X
+               NAME=LCTIPO
+         DFHMDF POS=(6,35),                                            X
+               LENGTH=40,                                              X
+               ATTRB=(PROT,NORM),                                      X
+               COLOR=WHITE,                                            X
+               INITIAL='A=Administrador  E=Estipulante/Corretor'
+*--- USUARIO ----------------------------------------------------------
+         DFHMDF POS=(9,16),                                            X
+               LENGTH=16,                                              X
+               ATTRB=(PROT,NORM),                                      X
+               COLOR=WHITE,                                            X
+               INITIAL='Usuario        :'
+         DFHMDF POS=(9,33),                                            X
+               LENGTH=10,                                              X
+               ATTRB=(NORM,FSET),                                      X
+               COLOR=GREEN,                                            X
+               NAME=LCUSER
+*--- APOLICE ----------------------------------------------------------
+         DFHMDF POS=(10,16),                                           X
+               LENGTH=16,                                              X
+               ATTRB=(PROT,NORM),                                      X
+               COLOR=WHITE,                                            X
+               INITIAL='Apolice        :'
+         DFHMDF POS=(10,33),                                           X
+               LENGTH=10,                                              X
+               ATTRB=(NORM,FSET),                                      X
+               COLOR=GREEN,                                            X
+               NAME=LCAPOL
+         DFHMDF POS=(10,44),                                           X
+               LENGTH=36,                                              X
+               ATTRB=(PROT,NORM),                                      X
+               COLOR=TURQUOISE,                                        X
+               INITIAL='(somente Estipulante/Corretor)      '
+*--- SENHA ------------------------------------------------------------
+         DFHMDF POS=(12,16),                                           X
+               LENGTH=16,                                              X
+               ATTRB=(PROT,NORM),                                      X
+               COLOR=WHITE,                                            X
+               INITIAL='Senha          :'
+         DFHMDF POS=(12,33),                                           X
+               LENGTH=10,                                              X
+               ATTRB=(NORM,FSET,DRK),                                  X
+               COLOR=GREEN,                                            X
+               NAME=LCSENHA
+*--- MENSAGEM DE ERRO -------------------------------------------------
+         DFHMDF POS=(15,16),                                           X
+               LENGTH=48,                                              X
+               ATTRB=(PROT,BRT),                                       X
+               COLOR=RED,                                              X
+               NAME=LCMSG
+*--- RODAPE -----------------------------------------------------------
+         DFHMDF POS=(22,1),                                            X
+               LENGTH=79,                                              X
+               ATTRB=(PROT,BRT),                                       X
+               COLOR=BLUE,                                             X
+               INITIAL='══════════════════════════════════════════════X
+══════════════════════════════'
+         DFHMDF POS=(23,20),                                           X
+               LENGTH=40,                                              X
+               ATTRB=(PROT,NORM),                                      X
+               COLOR=YELLOW,                                           X
+               INITIAL='PF1=Ajuda   PF3=Sair   ENTER=Confirmar  '
+         DFHMSD TYPE=FINAL
+         END
