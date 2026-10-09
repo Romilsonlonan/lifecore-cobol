@@ -3,9 +3,11 @@ conftest.py — Playwright
 Inicia o servidor uvicorn em background antes dos testes E2E
 e encerra após a sessão.
 """
+
+import socket
 import subprocess
 import time
-import socket
+
 import pytest
 
 
@@ -26,7 +28,16 @@ def servidor_fastapi():
         return
 
     proc = subprocess.Popen(
-        ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"],
+        [
+            "python",
+            "-m",
+            "uvicorn",
+            "app.main:app",
+            "--host",
+            "0.0.0.0",
+            "--port",
+            "8000",
+        ],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )

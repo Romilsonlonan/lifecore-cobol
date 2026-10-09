@@ -17,12 +17,11 @@ Os testes cobrem:
   4. GET /api/painel retorna JSON com os 4 KPIs
   5. Fluxo completo: proposta → aceite → apólice (UI flow)
 """
-import pytest
-import json
+
 from playwright.sync_api import Page, expect
 
 BASE_URL = "http://localhost:8000"
-SWAGGER   = f"{BASE_URL}/docs"
+SWAGGER = f"{BASE_URL}/docs"
 
 # ── Tags que devem aparecer na Swagger UI ──────────────────────────────────────
 EXPECTED_TAGS = [
@@ -42,6 +41,7 @@ EXPECTED_TAGS = [
 # ═══════════════════════════════════════════════════════════════════════════════
 # SMOKE — Swagger UI
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def test_swagger_carrega(page: Page):
     """A Swagger UI deve carregar com o título correto."""
@@ -64,18 +64,19 @@ def test_swagger_todos_os_grupos(page: Page):
 
     tags_visiveis = page.locator(".opblock-tag span.nostyle").all_text_contents()
     for tag in EXPECTED_TAGS:
-        assert any(tag in t for t in tags_visiveis), (
-            f"Tag '{tag}' não encontrada na Swagger. Tags encontradas: {tags_visiveis}"
-        )
+        assert any(
+            tag in t for t in tags_visiveis
+        ), f"Tag '{tag}' não encontrada na Swagger. Tags encontradas: {tags_visiveis}"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # SMOKE — Health via browser (fetch JS)
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def test_health_via_browser(page: Page):
     """GET /health deve retornar status=ok via fetch no browser."""
-    page.goto(BASE_URL + "/docs")   # página base para ter contexto CORS
+    page.goto(BASE_URL + "/docs")  # página base para ter contexto CORS
     result = page.evaluate(
         """async () => {
             const r = await fetch('/health');
@@ -89,6 +90,7 @@ def test_health_via_browser(page: Page):
 # ═══════════════════════════════════════════════════════════════════════════════
 # API via fetch no browser — testa CORS + JSON correto
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def test_listar_empresas_via_browser(page: Page):
     """GET /api/cadastros/empresas deve retornar lista com Prudential."""
@@ -141,6 +143,7 @@ def test_headers_trace_id(page: Page):
 # ═══════════════════════════════════════════════════════════════════════════════
 # FLUXO E2E — Proposta → Aceite (via fetch direto, browser como executor)
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def test_fluxo_proposta_aceite_e2e(page: Page):
     """

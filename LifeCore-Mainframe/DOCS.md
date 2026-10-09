@@ -166,8 +166,8 @@ LifeCore-Mainframe/
 │   └── CALCCAP.so              ← Módulo compartilhado (cobc -m)
 │
 ├── .github/workflows/
-│   └── ci.yml                  ← 7 jobs: compile · lint · integration · schema
-│                                          · api-test · e2e · summary
+│   └── ci.yml                  ← 8 jobs: compile · lint · integration · schema
+│                                          · api-test · e2e · security · summary
 │
 └── integration-layer/          ← FastAPI (Python 3.12)
     ├── app/
@@ -417,7 +417,9 @@ Todas definidas em `.env` (ver `.env.example`). Carregadas via `pydantic-setting
 | `DATA_QUARANTINE_DIR` | `/tmp/lifecore/DATA/QUARANTINE` | Registros inválidos |
 | `LOAD_DIR` | `/tmp/lifecore/LOAD` | Binários COBOL compilados |
 | `DATABASE_URL` | `postgresql://postgres:lifecore@localhost:5432/lifecore` | PostgreSQL |
-| `BATCH_CONNECTOR` | `stub` | `stub` / `local` / `zowe` |
+| `DB2_DSN` | — | String DRDA para a conexão da API ao DB2 z/OS; obrigatória para cadastros EMPRESA |
+| `DB2_SCHEMA` | `LIFECORE` | Schema DB2 da tabela EMPRESA compartilhada com CICS |
+| `BATCH_CONNECTOR` | `stub` | `stub` / `local` / `zowe`; controla batch, não a conexão DB2 da API |
 | `ZOWE_PROFILE` | `zos-dev` | Perfil Zowe CLI |
 | `ZOS_HLQ` | `LIFECORE` | High-Level Qualifier no z/OS |
 | `ZOS_DB2_SYSTEM` | `DB2P` | Subsistema DB2 |
@@ -442,6 +444,66 @@ Todas definidas em `.env` (ver `.env.example`). Carregadas via `pydantic-setting
 
 ---
 
+### 6.1.1 Cadastros compartilhados via DB2 z/OS
+
+`EMPRESA` é a fonte única para o cadastro de estipulantes. A API usa o driver
+IBM `ibm_db` e o valor `DB2_DSN`; o programa CICS `LCES` (`LCCICS04`) usa
+SQL embutido na mesma tabela `LIFECORE.EMPRESA`. Não há fallback para memória
+ou PostgreSQL: sem DB2 configurado a API retorna HTTP 503.
+
+Antes de habilitar os fluxos:
+
+1. Aplicar `SQL/DB2/001_EMPRESA.sql` uma única vez no schema DB2 `LIFECORE`.
+2. Configurar `DB2_DSN` como string DRDA fornecida pelo administrador do DB2.
+3. Gerar o mapa `LCMAPA04` e o copybook `LCMSET4` com `LCBMSC01`.
+4. Compilar o programa e DBRM com `LCESBLC1`; vincular o DBRM ao package/plan
+   permitido pela região CICS e habilitar os recursos CICS de `LCCSDUP1`.
+5. Testar os dois fluxos contra a mesma instância e tabela DB2.
+
+O cadastro compartilhado não significa que o processamento COBOL batch já
+esteja sendo acionado por cada gravação web. Importações, cancelamentos e
+emissão/impressão de faturas precisam de seus contratos e rotinas COBOL
+específicos; a API não os simula nem os substitui.
+
+#### Importação inicial para revisão
+
+O portal também recebe planilhas CSV, XLSX, XLS e ODS ou um link público do
+Google Sheets (compartilhado como “qualquer pessoa com o link — leitor”).
+O usuário confere e ajusta o mapeamento de Sub, Módulo, Nome, Nascimento,
+CPF e Admissão; salário, cargo e capital são excluídos. Esta etapa apenas
+valida estrutura, formato de data, CPF com 11 dígitos e duplicidades dentro
+do arquivo: não confirma elegibilidade nem cria cobertura/apólice.
+
+1. Aplicar `SQL/DB2/002_IMPORTACAO_INICIAL.sql` no schema compartilhado antes
+   de habilitar a gravação.
+2. Configurar `DB2_DSN` e validar conectividade da API ao DB2.
+3. Compilar o mapa/programa CICS com `JCL/LCBMSC01.jcl` e
+   `JCL/LCIMP09.jcl`; instalar o programa, mapset e transação `LCIM` conforme
+   `JCL/LCCSDUP1.csd`. A consulta CICS lê as mesmas tabelas DB2 da API.
+4. Na interface, analisar, mapear, validar e então salvar. A validação não
+   grava; o lote salvo recebe status `RV` (revisão), e linhas com crítica
+   recebem `ER`. O vínculo ao estipulante/apólice e a liberação das vidas são
+   etapas posteriores, ainda não automatizadas por este fluxo.
+
+| Método | Path | Descrição |
+|---|---|---|
+| `POST` | `/api/cadastros/importacoes-iniciais/analisar` | Lê cabeçalhos e sugere mapeamento; não grava |
+| `POST` | `/api/cadastros/importacoes-iniciais/validar` | Valida o mapeamento/conteúdo; não grava |
+| `POST` | `/api/cadastros/importacoes-iniciais` | Persiste lote e linhas de revisão no DB2 |
+| `GET` | `/api/cadastros/importacoes-iniciais?limite=20` | Lista lotes no DB2 |
+| `GET` | `/api/cadastros/importacoes-iniciais/{id_importacao}` | Consulta lote e linhas no DB2 |
+
+Todos os endpoints exigem perfil administrador. O arquivo/link pode ter até
+10 MB e cada lote até 50.000 linhas. O CPF é mascarado nas prévias. O ID do
+lote pode ser informado na transação CICS `LCIM` (opção 7 do menu após a
+implantação).
+
+Os scripts CICS/JCL/DDL são artefatos preparados, não uma implantação
+comprovada: DB2 z/OS e CICS precisam compilar, instalar e validar esses recursos
+no ambiente IBM antes do uso produtivo.
+
+---
+
 ### 6.2 Endpoints por Módulo
 
 #### Health
@@ -461,6 +523,10 @@ Todas definidas em `.env` (ver `.env.example`). Carregadas via `pydantic-setting
 |---|---|---|
 | `GET/POST` | `/api/cadastros/empresas` | Lista / cadastra empresa |
 | `GET/PUT` | `/api/cadastros/empresas/{id}` | Detalha / altera status |
+| `POST` | `/api/cadastros/importacoes-iniciais/analisar` | Analisa planilha de cadastro inicial |
+| `POST` | `/api/cadastros/importacoes-iniciais/validar` | Valida mapeamento sem gravar |
+| `POST/GET` | `/api/cadastros/importacoes-iniciais` | Grava lote de revisão / lista lotes |
+| `GET` | `/api/cadastros/importacoes-iniciais/{id_importacao}` | Consulta lote e linhas |
 | `GET/POST` | `/api/cadastros/congeneres` | Resseguradores |
 | `DELETE` | `/api/cadastros/congeneres/{id}` | Remove congênere |
 | `GET/POST` | `/api/cadastros/segurados` | Segurados / PF |
@@ -811,6 +877,64 @@ unsloth finetune --model llama3.2-3b-4bit --data lifecore_finetune.jsonl
 ./quantize model.gguf model-q4_k_m.gguf Q4_K_M
 ```
 
+### 7.7 Detecção de Fraude em Seguros (`app/ai/fraud/`) — LCIQ-3
+
+Módulo especializado em padrões de fraude do domínio **VGC/GLB** (Vida em Grupo Coletivo). Analisa sinistros, apólices, coberturas e propostas — **não** é fraude de cartão/pagamento.
+
+**Estrutura:**
+
+```
+app/ai/fraud/
+├── detector.py           ← orquestrador: coleta contexto + calcula flags
+├── rules/
+│   ├── sinistro.py       ← abertura_imediata, carencia_violada, capital_anormal
+│   ├── apolice.py        ← proposta_manual_rapida, concentracao_mort
+│   └── segurado.py       ← cpf_multiplas_apolices, inclusao_retroativa
+├── providers/
+│   ├── base.py           ← FraudProvider (ABC) — Strategy pattern
+│   ├── watsonx.py        ← IBM watsonx.ai (contexto atuarial)
+│   ├── openai.py         ← OpenAI
+│   └── mock.py           ← Mock para CI/CD (cenários MORT/INVA)
+├── schemas.py            ← FraudScoreRequest / FraudScoreResponse
+└── router.py             ← POST /api/ai/fraud/score
+```
+
+**Tabelas do schema_v2.sql envolvidas:** `SINISTRO`, `COBERTURA`, `PROPOSTA`, `SEGURADO`, `APOLICE`
+
+**Flags de fraude atuarial:**
+
+| Flag | Condição | Peso |
+|---|---|---|
+| `abertura_imediata` | `DT_ABERTURA = DT_EVENTO` | +0.35 |
+| `capital_anormal` | `VL_INDENIZACAO > 2×` média histórica | +0.30 |
+| `inclusao_retroativa` | segurado incluso < 30 dias antes do evento | +0.40 |
+| `carencia_violada` | `DT_EVENTO < DT_INCLUSAO + NR_CARENCIA_DIAS` | +0.50 |
+| `concentracao_mort` | > 3 MORT na mesma empresa em 90 dias | +0.25 |
+| `proposta_manual_rapida` | `TP_ACEITE=MA` + `NR_DIAS_ANALISE=0` | +0.20 |
+| `beneficiario_sem_kit` | `KIT_SINISTRO` incompleto | +0.15 |
+| `cpf_multiplas_apolices` | CPF ativo em > 3 apólices com capital alto | +0.20 |
+
+**Endpoint:** `POST /api/ai/fraud/score` → `{ score, risk_level, flags, provider, latency_ms }`
+
+**Configuração:** `FRAUD_API_PROVIDER=watsonx|openai|mock` (Strategy — troca sem alterar código)
+
+**PCI-DSS:** contexto enviado à API nunca inclui PAN — usa `cd_token_cartao` + `cd_ultimos4`.
+
+---
+
+### 7.8 Observabilidade de Segurança (`app/ai/security/`) — LCIQ-11
+
+Registra eventos de bloqueio do pipeline de segurança (Presidio, Bandit, detect-secrets, COBOL PCI hook) na trilha de auditoria.
+
+**Destinos:**
+- Tabela `AUDITORIA_ACAO` (campo `TP_MODULO = 'security'`)
+- Span OpenTelemetry por evento
+- `GET /api/ai/security/events` — últimos 100 eventos paginados
+
+**Tipos de evento:** `PII_DETECTED` · `PAN_DETECTED` · `SECRET_DETECTED` · `SAST_VIOLATION` · `CPF_HARDCODED`
+
+**Regra PCI-DSS:** valor bloqueado **nunca** aparece no log — apenas `tipo + arquivo + linha`.
+
 ---
 
 ## 8. Observabilidade — OpenTelemetry
@@ -889,7 +1013,7 @@ pytest tests/e2e/ -v             # headless (CI)
 
 **Arquivo:** `.github/workflows/ci.yml`
 
-**7 jobs (GitHub Actions):**
+**8 jobs (GitHub Actions):**
 
 | Job | Trigger | O que faz |
 |---|---|---|
@@ -899,7 +1023,55 @@ pytest tests/e2e/ -v             # headless (CI)
 | `schema-validate` | paralelo | Sobe PostgreSQL, aplica schema_v2.sql, verifica 7 tabelas |
 | `api-test` | paralelo | Instala deps Python, roda 39 testes, sobe uvicorn, verifica headers OTel |
 | `e2e-test` | após api-test | Instala Playwright + Chromium, sobe servidor, roda 8 testes E2E |
+| `security` | paralelo | Bandit SAST, detect-secrets, Presidio PII/PAN, COBOL PCI check — ver §10.1 |
 | `summary` | após todos | Tabela Markdown com resultado de cada job no GITHUB_STEP_SUMMARY |
+
+### 10.1 Job `security` — pipeline de segurança
+
+**Ferramentas:**
+
+| Ferramenta | Versão | O que detecta |
+|---|---|---|
+| **Bandit** | 1.9.4 | SAST Python — severity medium+, confidence medium+ |
+| **detect-secrets** | 1.5.0 | Credenciais hardcoded — 27 plugins (AWS, GitHub, OpenAI, IBM Cloud…) |
+| **Presidio** | 2.2.364 | PII/PAN — CPF, e-mail, telefone, cartão (LGPD + PCI-DSS) |
+| **COBOL PCI hook** | local | Campos PAN e SQLCA inline em `.cbl`/`.cpy` |
+
+**Artefatos gerados:** `bandit-report.json` (retido 30 dias)
+
+**Baseline detect-secrets:** `.secrets.baseline` — segredos existentes marcados para não bloquear CI.
+Novo segredo → falha imediata com arquivo:linha.
+
+### 10.2 Pre-commit hooks
+
+**Arquivo:** `.pre-commit-config.yaml` (raiz do repositório)
+
+**Instalação:**
+```bash
+pip install pre-commit
+pre-commit install        # instala hooks em .git/hooks/pre-commit
+pre-commit run --all-files  # executa em todos os arquivos
+```
+
+**Hooks configurados:**
+
+| Hook | Ferramenta | Ação |
+|---|---|---|
+| `ruff` | Ruff 0.4.4 | Lint Python — auto-fix + bloqueia erros restantes |
+| `ruff-format` | Ruff 0.4.4 | Formatação automática |
+| `trailing-whitespace` | pre-commit-hooks | Remove espaços no fim |
+| `detect-private-key` | pre-commit-hooks | Bloqueia chaves privadas |
+| `detect-secrets` | Yelp/detect-secrets | Credenciais hardcoded vs `.secrets.baseline` |
+| `bandit` | PyCQA/bandit | SAST Python severity medium+ |
+| `presidio-pii-scan` | local | PII/PAN em `.py` — CPF, e-mail, cartão |
+| `cobol-pci-check` | local | PAN e SQLCA inline em `.cbl`/`.cpy` |
+
+**Scripts locais:** `scripts/presidio_hook.py`, `scripts/cobol_pci_hook.sh`
+
+**Anotação para falsos positivos (dados de teste):**
+```python
+cpf = "111.444.777-35"  # presidio: ignore
+```
 
 ---
 
@@ -1139,5 +1311,5 @@ Adicione em `~/.config/claude/claude_desktop_config.json`:
 
 ---
 
-> **Gerado por:** LifeCore-Mainframe documentation generator  
+> **Gerado por:** LifeCore-Mainframe documentation generator
 > **Última atualização:** 2026 — versão 2.0.0

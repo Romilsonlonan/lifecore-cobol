@@ -9,10 +9,10 @@ Cobertura de todos os endpoints novos:
   /api/emissao/apolices/{nr_apolice}/coberturas/{cpf}/registrar-inadimplencia
   /api/emissao/taxas-ipca
 """
-import pytest
-from fastapi.testclient import TestClient
 
+import pytest
 from app.main import app
+from fastapi.testclient import TestClient
 
 client = TestClient(app)
 
@@ -22,33 +22,40 @@ import uuid as _uuid
 
 CPF_SEG1 = "11111111111"
 CPF_SEG2 = "22222222222"
-NR_APOLICE: str = ""   # preenchido nos fixtures
+NR_APOLICE: str = ""  # preenchido nos fixtures
 
 
 def _criar_apolice(suffix: str = "") -> str:
     """Cria proposta única → aceita → retorna nr_apolice."""
     nr_prop = f"2026.PROP.{suffix or _uuid.uuid4().hex[:8].upper()}"
-    r = client.post("/api/emissao/propostas", json={
-        "nr_proposta":     nr_prop,
-        "cd_empresa":      1,
-        "cd_cpf_segurado": CPF_SEG1,
-        "cd_produto":      "VGC",
-        "tp_capital":      "F",
-        "vl_capital":      200000.00,
-        "dt_proposta":     "20260101",
-    })
+    r = client.post(
+        "/api/emissao/propostas",
+        json={
+            "nr_proposta": nr_prop,
+            "cd_empresa": 1,
+            "cd_cpf_segurado": CPF_SEG1,
+            "cd_produto": "VGC",
+            "tp_capital": "F",
+            "vl_capital": 200000.00,
+            "dt_proposta": "20260101",
+        },
+    )
     assert r.status_code == 201, r.text
 
-    r2 = client.post(f"/api/emissao/propostas/{nr_prop}/aceitar", json={
-        "nr_proposta": nr_prop,
-        "tp_aceite":   "MA",
-        "id_usuario":  "USR001",
-    })
+    r2 = client.post(
+        f"/api/emissao/propostas/{nr_prop}/aceitar",
+        json={
+            "nr_proposta": nr_prop,
+            "tp_aceite": "MA",
+            "id_usuario": "USR001",
+        },
+    )
     assert r2.status_code == 200, r2.text
     return r2.json()["nr_apolice_gerada"]
 
 
 # ── TAXAS IPCA ────────────────────────────────────────────────────────────────
+
 
 class TestTaxasIPCA:
     def test_listar_taxas_seed(self):
@@ -77,31 +84,38 @@ class TestTaxasIPCA:
         assert r.status_code == 404
 
     def test_cadastrar_nova_taxa(self):
-        r = client.post("/api/emissao/taxas-ipca", json={
-            "cd_competencia":    "202508",
-            "vl_taxa_ipca":      0.44,
-            "vl_taxa_acumulada": 4.61,
-            "dt_divulgacao":     "20250912",
-            "ds_fonte":          "IBGE/IPCA",
-            "fl_vigente":        True,
-        })
+        r = client.post(
+            "/api/emissao/taxas-ipca",
+            json={
+                "cd_competencia": "202508",
+                "vl_taxa_ipca": 0.44,
+                "vl_taxa_acumulada": 4.61,
+                "dt_divulgacao": "20250912",
+                "ds_fonte": "IBGE/IPCA",
+                "fl_vigente": True,
+            },
+        )
         assert r.status_code == 201
         data = r.json()
         assert data["cd_competencia"] == "202508"
         assert data["fl_vigente"] is True
 
     def test_cadastrar_taxa_duplicada(self):
-        r = client.post("/api/emissao/taxas-ipca", json={
-            "cd_competencia":    "202508",
-            "vl_taxa_ipca":      0.50,
-            "vl_taxa_acumulada": 4.70,
-            "dt_divulgacao":     "20250912",
-            "fl_vigente":        True,
-        })
+        r = client.post(
+            "/api/emissao/taxas-ipca",
+            json={
+                "cd_competencia": "202508",
+                "vl_taxa_ipca": 0.50,
+                "vl_taxa_acumulada": 4.70,
+                "dt_divulgacao": "20250912",
+                "fl_vigente": True,
+            },
+        )
         assert r.status_code == 409
 
 
 # ── ENDOSSOS ──────────────────────────────────────────────────────────────────
+
 
 class TestEndossos:
     @pytest.fixture(autouse=True)
@@ -110,14 +124,17 @@ class TestEndossos:
         NR_APOLICE = _criar_apolice()
 
     def test_incluir_segurado(self):
-        r = client.post(f"/api/emissao/apolices/{NR_APOLICE}/endossos", json={
-            "cd_cpf_segurado":    CPF_SEG2,
-            "nm_segurado":        "MARIA SILVA",
-            "tp_endosso":         "INC",
-            "dt_inicio_vigencia": "20260201",
-            "vl_capital":         150000.00,
-            "id_usuario":         "USR001",
-        })
+        r = client.post(
+            f"/api/emissao/apolices/{NR_APOLICE}/endossos",
+            json={
+                "cd_cpf_segurado": CPF_SEG2,
+                "nm_segurado": "MARIA SILVA",
+                "tp_endosso": "INC",
+                "dt_inicio_vigencia": "20260201",
+                "vl_capital": 150000.00,
+                "id_usuario": "USR001",
+            },
+        )
         assert r.status_code == 201
         data = r.json()
         assert data["cd_status"] == "PR"
@@ -125,66 +142,86 @@ class TestEndossos:
         assert data["vl_premio_calculado"] is not None
 
     def test_incluir_segurado_duplicado(self):
-        client.post(f"/api/emissao/apolices/{NR_APOLICE}/endossos", json={
-            "cd_cpf_segurado":    CPF_SEG2,
-            "nm_segurado":        "MARIA SILVA",
-            "tp_endosso":         "INC",
-            "dt_inicio_vigencia": "20260201",
-            "vl_capital":         150000.00,
-            "id_usuario":         "USR001",
-        })
-        r2 = client.post(f"/api/emissao/apolices/{NR_APOLICE}/endossos", json={
-            "cd_cpf_segurado":    CPF_SEG2,
-            "nm_segurado":        "MARIA SILVA",
-            "tp_endosso":         "INC",
-            "dt_inicio_vigencia": "20260201",
-            "vl_capital":         150000.00,
-            "id_usuario":         "USR001",
-        })
+        client.post(
+            f"/api/emissao/apolices/{NR_APOLICE}/endossos",
+            json={
+                "cd_cpf_segurado": CPF_SEG2,
+                "nm_segurado": "MARIA SILVA",
+                "tp_endosso": "INC",
+                "dt_inicio_vigencia": "20260201",
+                "vl_capital": 150000.00,
+                "id_usuario": "USR001",
+            },
+        )
+        r2 = client.post(
+            f"/api/emissao/apolices/{NR_APOLICE}/endossos",
+            json={
+                "cd_cpf_segurado": CPF_SEG2,
+                "nm_segurado": "MARIA SILVA",
+                "tp_endosso": "INC",
+                "dt_inicio_vigencia": "20260201",
+                "vl_capital": 150000.00,
+                "id_usuario": "USR001",
+            },
+        )
         assert r2.status_code == 409
 
     def test_excluir_segurado(self):
         # Inclui primeiro
-        client.post(f"/api/emissao/apolices/{NR_APOLICE}/endossos", json={
-            "cd_cpf_segurado":    CPF_SEG2,
-            "nm_segurado":        "MARIA SILVA",
-            "tp_endosso":         "INC",
-            "dt_inicio_vigencia": "20260201",
-            "vl_capital":         150000.00,
-            "id_usuario":         "USR001",
-        })
-        r = client.post(f"/api/emissao/apolices/{NR_APOLICE}/endossos", json={
-            "cd_cpf_segurado":    CPF_SEG2,
-            "nm_segurado":        "MARIA SILVA",
-            "tp_endosso":         "EXC",
-            "dt_inicio_vigencia": "20260301",
-            "id_usuario":         "USR001",
-            "cd_motivo":          "DEMI",
-            "ds_observacao":      "Demissão voluntária.",
-        })
+        client.post(
+            f"/api/emissao/apolices/{NR_APOLICE}/endossos",
+            json={
+                "cd_cpf_segurado": CPF_SEG2,
+                "nm_segurado": "MARIA SILVA",
+                "tp_endosso": "INC",
+                "dt_inicio_vigencia": "20260201",
+                "vl_capital": 150000.00,
+                "id_usuario": "USR001",
+            },
+        )
+        r = client.post(
+            f"/api/emissao/apolices/{NR_APOLICE}/endossos",
+            json={
+                "cd_cpf_segurado": CPF_SEG2,
+                "nm_segurado": "MARIA SILVA",
+                "tp_endosso": "EXC",
+                "dt_inicio_vigencia": "20260301",
+                "id_usuario": "USR001",
+                "cd_motivo": "DEMI",
+                "ds_observacao": "Demissão voluntária.",
+            },
+        )
         assert r.status_code == 201
         assert r.json()["cd_status"] == "PR"
 
     def test_alterar_capital(self):
         # Inclui
-        client.post(f"/api/emissao/apolices/{NR_APOLICE}/endossos", json={
-            "cd_cpf_segurado":    CPF_SEG2,
-            "nm_segurado":        "MARIA SILVA",
-            "tp_endosso":         "INC",
-            "dt_inicio_vigencia": "20260201",
-            "vl_capital":         150000.00,
-            "id_usuario":         "USR001",
-        })
-        r = client.post(f"/api/emissao/apolices/{NR_APOLICE}/endossos", json={
-            "cd_cpf_segurado":    CPF_SEG2,
-            "nm_segurado":        "MARIA SILVA",
-            "tp_endosso":         "CAP",
-            "dt_inicio_vigencia": "20260301",
-            "vl_capital":         200000.00,
-            "id_usuario":         "USR001",
-        })
+        client.post(
+            f"/api/emissao/apolices/{NR_APOLICE}/endossos",
+            json={
+                "cd_cpf_segurado": CPF_SEG2,
+                "nm_segurado": "MARIA SILVA",
+                "tp_endosso": "INC",
+                "dt_inicio_vigencia": "20260201",
+                "vl_capital": 150000.00,
+                "id_usuario": "USR001",
+            },
+        )
+        r = client.post(
+            f"/api/emissao/apolices/{NR_APOLICE}/endossos",
+            json={
+                "cd_cpf_segurado": CPF_SEG2,
+                "nm_segurado": "MARIA SILVA",
+                "tp_endosso": "CAP",
+                "dt_inicio_vigencia": "20260301",
+                "vl_capital": 200000.00,
+                "id_usuario": "USR001",
+            },
+        )
         assert r.status_code == 201
-        assert r.json()["vl_capital_calculado"] == pytest.approx(200000 * 1.0044, rel=0.01)
+        assert r.json()["vl_capital_calculado"] == pytest.approx(
+            200000 * 1.0044, rel=0.01
+        )
 
     def test_listar_endossos(self):
         r = client.get(f"/api/emissao/apolices/{NR_APOLICE}/endossos")
@@ -193,31 +230,38 @@ class TestEndossos:
 
     def test_detalhar_endosso(self):
         # Inclui e pega o nr_endosso
-        r = client.post(f"/api/emissao/apolices/{NR_APOLICE}/endossos", json={
-            "cd_cpf_segurado":    CPF_SEG2,
-            "nm_segurado":        "MARIA SILVA",
-            "tp_endosso":         "INC",
-            "dt_inicio_vigencia": "20260201",
-            "vl_capital":         150000.00,
-            "id_usuario":         "USR001",
-        })
+        r = client.post(
+            f"/api/emissao/apolices/{NR_APOLICE}/endossos",
+            json={
+                "cd_cpf_segurado": CPF_SEG2,
+                "nm_segurado": "MARIA SILVA",
+                "tp_endosso": "INC",
+                "dt_inicio_vigencia": "20260201",
+                "vl_capital": 150000.00,
+                "id_usuario": "USR001",
+            },
+        )
         nr = r.json()["nr_endosso"]
         r2 = client.get(f"/api/emissao/apolices/{NR_APOLICE}/endossos/{nr}")
         assert r2.status_code == 200
         assert r2.json()["nr_endosso"] == nr
 
     def test_endosso_apolice_inexistente(self):
-        r = client.post("/api/emissao/apolices/NAOEXISTE/endossos", json={
-            "cd_cpf_segurado":    CPF_SEG2,
-            "nm_segurado":        "TESTE",
-            "tp_endosso":         "INC",
-            "dt_inicio_vigencia": "20260201",
-            "id_usuario":         "USR001",
-        })
+        r = client.post(
+            "/api/emissao/apolices/NAOEXISTE/endossos",
+            json={
+                "cd_cpf_segurado": CPF_SEG2,
+                "nm_segurado": "TESTE",
+                "tp_endosso": "INC",
+                "dt_inicio_vigencia": "20260201",
+                "id_usuario": "USR001",
+            },
+        )
         assert r.status_code == 404
 
 
 # ── FATURAMENTO ───────────────────────────────────────────────────────────────
+
 
 class TestFaturamento:
     @pytest.fixture(autouse=True)
@@ -227,13 +271,16 @@ class TestFaturamento:
 
     def test_gerar_fatura_sem_coberturas(self):
         """Gera fatura usando capital da apólice diretamente."""
-        r = client.post(f"/api/emissao/apolices/{NR_APOLICE}/faturamento", json={
-            "nr_apolice":     NR_APOLICE,
-            "cd_competencia": "202606",
-            "dt_vencimento":  "20260610",
-            "forma_cobranca": "BO",
-            "id_usuario":     "USR001",
-        })
+        r = client.post(
+            f"/api/emissao/apolices/{NR_APOLICE}/faturamento",
+            json={
+                "nr_apolice": NR_APOLICE,
+                "cd_competencia": "202606",
+                "dt_vencimento": "20260610",
+                "forma_cobranca": "BO",
+                "id_usuario": "USR001",
+            },
+        )
         assert r.status_code == 201
         data = r.json()
         assert data["nr_apolice"] == NR_APOLICE
@@ -244,21 +291,27 @@ class TestFaturamento:
 
     def test_gerar_fatura_com_coberturas(self):
         """Inclui segurado via endosso e gera fatura com múltiplos itens."""
-        client.post(f"/api/emissao/apolices/{NR_APOLICE}/endossos", json={
-            "cd_cpf_segurado":    CPF_SEG2,
-            "nm_segurado":        "PEDRO SANTOS",
-            "tp_endosso":         "INC",
-            "dt_inicio_vigencia": "20260201",
-            "vl_capital":         100000.00,
-            "id_usuario":         "USR001",
-        })
-        r = client.post(f"/api/emissao/apolices/{NR_APOLICE}/faturamento", json={
-            "nr_apolice":     NR_APOLICE,
-            "cd_competencia": "202607",
-            "dt_vencimento":  "20260710",
-            "forma_cobranca": "CC",
-            "id_usuario":     "USR001",
-        })
+        client.post(
+            f"/api/emissao/apolices/{NR_APOLICE}/endossos",
+            json={
+                "cd_cpf_segurado": CPF_SEG2,
+                "nm_segurado": "PEDRO SANTOS",
+                "tp_endosso": "INC",
+                "dt_inicio_vigencia": "20260201",
+                "vl_capital": 100000.00,
+                "id_usuario": "USR001",
+            },
+        )
+        r = client.post(
+            f"/api/emissao/apolices/{NR_APOLICE}/faturamento",
+            json={
+                "nr_apolice": NR_APOLICE,
+                "cd_competencia": "202607",
+                "dt_vencimento": "20260710",
+                "forma_cobranca": "CC",
+                "id_usuario": "USR001",
+            },
+        )
         assert r.status_code == 201
         data = r.json()
         assert data["nr_segurados"] >= 1
@@ -268,30 +321,54 @@ class TestFaturamento:
             assert item["vl_premio_bruto"] > 0
 
     def test_fatura_duplicada_rejeitada(self):
-        client.post(f"/api/emissao/apolices/{NR_APOLICE}/faturamento", json={
-            "nr_apolice": NR_APOLICE, "cd_competencia": "202608",
-            "dt_vencimento": "20260810", "forma_cobranca": "BO", "id_usuario": "USR001",
-        })
-        r = client.post(f"/api/emissao/apolices/{NR_APOLICE}/faturamento", json={
-            "nr_apolice": NR_APOLICE, "cd_competencia": "202608",
-            "dt_vencimento": "20260810", "forma_cobranca": "BO", "id_usuario": "USR001",
-        })
+        client.post(
+            f"/api/emissao/apolices/{NR_APOLICE}/faturamento",
+            json={
+                "nr_apolice": NR_APOLICE,
+                "cd_competencia": "202608",
+                "dt_vencimento": "20260810",
+                "forma_cobranca": "BO",
+                "id_usuario": "USR001",
+            },
+        )
+        r = client.post(
+            f"/api/emissao/apolices/{NR_APOLICE}/faturamento",
+            json={
+                "nr_apolice": NR_APOLICE,
+                "cd_competencia": "202608",
+                "dt_vencimento": "20260810",
+                "forma_cobranca": "BO",
+                "id_usuario": "USR001",
+            },
+        )
         assert r.status_code == 409
 
     def test_listar_faturas(self):
-        client.post(f"/api/emissao/apolices/{NR_APOLICE}/faturamento", json={
-            "nr_apolice": NR_APOLICE, "cd_competencia": "202609",
-            "dt_vencimento": "20260910", "forma_cobranca": "PI", "id_usuario": "USR001",
-        })
+        client.post(
+            f"/api/emissao/apolices/{NR_APOLICE}/faturamento",
+            json={
+                "nr_apolice": NR_APOLICE,
+                "cd_competencia": "202609",
+                "dt_vencimento": "20260910",
+                "forma_cobranca": "PI",
+                "id_usuario": "USR001",
+            },
+        )
         r = client.get(f"/api/emissao/apolices/{NR_APOLICE}/faturamento")
         assert r.status_code == 200
         assert len(r.json()) >= 1
 
     def test_detalhar_fatura(self):
-        r = client.post(f"/api/emissao/apolices/{NR_APOLICE}/faturamento", json={
-            "nr_apolice": NR_APOLICE, "cd_competencia": "202610",
-            "dt_vencimento": "20261010", "forma_cobranca": "DB", "id_usuario": "USR001",
-        })
+        r = client.post(
+            f"/api/emissao/apolices/{NR_APOLICE}/faturamento",
+            json={
+                "nr_apolice": NR_APOLICE,
+                "cd_competencia": "202610",
+                "dt_vencimento": "20261010",
+                "forma_cobranca": "DB",
+                "id_usuario": "USR001",
+            },
+        )
         nr_fat = r.json()["nr_fatura"]
         r2 = client.get(f"/api/emissao/apolices/{NR_APOLICE}/faturamento/{nr_fat}")
         assert r2.status_code == 200
@@ -299,6 +376,7 @@ class TestFaturamento:
 
 
 # ── CONSULTA DETALHADA ────────────────────────────────────────────────────────
+
 
 class TestConsultaApolice:
     @pytest.fixture(autouse=True)
@@ -322,21 +400,33 @@ class TestConsultaApolice:
         assert isinstance(r.json(), list)
 
     def test_listar_coberturas_apos_endosso(self):
-        client.post(f"/api/emissao/apolices/{NR_APOLICE}/endossos", json={
-            "cd_cpf_segurado": CPF_SEG2, "nm_segurado": "ANA COSTA",
-            "tp_endosso": "INC", "dt_inicio_vigencia": "20260201",
-            "vl_capital": 120000.00, "id_usuario": "USR001",
-        })
+        client.post(
+            f"/api/emissao/apolices/{NR_APOLICE}/endossos",
+            json={
+                "cd_cpf_segurado": CPF_SEG2,
+                "nm_segurado": "ANA COSTA",
+                "tp_endosso": "INC",
+                "dt_inicio_vigencia": "20260201",
+                "vl_capital": 120000.00,
+                "id_usuario": "USR001",
+            },
+        )
         r = client.get(f"/api/emissao/apolices/{NR_APOLICE}/coberturas")
         assert r.status_code == 200
         assert len(r.json()) >= 1
 
     def test_detalhar_cobertura(self):
-        client.post(f"/api/emissao/apolices/{NR_APOLICE}/endossos", json={
-            "cd_cpf_segurado": CPF_SEG2, "nm_segurado": "ANA COSTA",
-            "tp_endosso": "INC", "dt_inicio_vigencia": "20260201",
-            "vl_capital": 120000.00, "id_usuario": "USR001",
-        })
+        client.post(
+            f"/api/emissao/apolices/{NR_APOLICE}/endossos",
+            json={
+                "cd_cpf_segurado": CPF_SEG2,
+                "nm_segurado": "ANA COSTA",
+                "tp_endosso": "INC",
+                "dt_inicio_vigencia": "20260201",
+                "vl_capital": 120000.00,
+                "id_usuario": "USR001",
+            },
+        )
         r = client.get(f"/api/emissao/apolices/{NR_APOLICE}/coberturas/{CPF_SEG2}")
         assert r.status_code == 200
         d = r.json()
@@ -350,17 +440,24 @@ class TestConsultaApolice:
 
 # ── INADIMPLÊNCIA e REVALIDAÇÃO ───────────────────────────────────────────────
 
+
 class TestInadimplenciaRevalidacao:
     @pytest.fixture(autouse=True)
     def setup(self):
         global NR_APOLICE
         NR_APOLICE = _criar_apolice()
         # Inclui segurado
-        client.post(f"/api/emissao/apolices/{NR_APOLICE}/endossos", json={
-            "cd_cpf_segurado": CPF_SEG2, "nm_segurado": "JOSE LIMA",
-            "tp_endosso": "INC", "dt_inicio_vigencia": "20260101",
-            "vl_capital": 80000.00, "id_usuario": "USR001",
-        })
+        client.post(
+            f"/api/emissao/apolices/{NR_APOLICE}/endossos",
+            json={
+                "cd_cpf_segurado": CPF_SEG2,
+                "nm_segurado": "JOSE LIMA",
+                "tp_endosso": "INC",
+                "dt_inicio_vigencia": "20260101",
+                "vl_capital": 80000.00,
+                "id_usuario": "USR001",
+            },
+        )
 
     def test_grace_period_3_meses(self):
         """3 meses sem pagamento → cobertura ATIVA (grace period)."""
@@ -390,11 +487,11 @@ class TestInadimplenciaRevalidacao:
         r = client.post(
             f"/api/emissao/apolices/{NR_APOLICE}/coberturas/{CPF_SEG2}/revalidar",
             json={
-                "cd_cpf_segurado":   CPF_SEG2,
-                "dt_reativacao":     "20261001",
+                "cd_cpf_segurado": CPF_SEG2,
+                "dt_reativacao": "20261001",
                 "fl_cobrar_retroativo": False,
-                "id_usuario":        "USR001",
-                "ds_justificativa":  "Regularização de pagamento.",
+                "id_usuario": "USR001",
+                "ds_justificativa": "Regularização de pagamento.",
             },
         )
         assert r.status_code == 200
@@ -413,11 +510,11 @@ class TestInadimplenciaRevalidacao:
         r = client.post(
             f"/api/emissao/apolices/{NR_APOLICE}/coberturas/{CPF_SEG2}/revalidar",
             json={
-                "cd_cpf_segurado":   CPF_SEG2,
-                "dt_reativacao":     "20260901",
+                "cd_cpf_segurado": CPF_SEG2,
+                "dt_reativacao": "20260901",
                 "fl_cobrar_retroativo": False,
-                "id_usuario":        "USR001",
-                "ds_justificativa":  "Regularização antecipada.",
+                "id_usuario": "USR001",
+                "ds_justificativa": "Regularização antecipada.",
             },
         )
         assert r.status_code == 200
@@ -430,11 +527,11 @@ class TestInadimplenciaRevalidacao:
         r = client.post(
             f"/api/emissao/apolices/{NR_APOLICE}/coberturas/{CPF_SEG2}/revalidar",
             json={
-                "cd_cpf_segurado":   "99999999999",  # diferente do path
-                "dt_reativacao":     "20261001",
+                "cd_cpf_segurado": "99999999999",  # diferente do path
+                "dt_reativacao": "20261001",
                 "fl_cobrar_retroativo": False,
-                "id_usuario":        "USR001",
-                "ds_justificativa":  "Teste.",
+                "id_usuario": "USR001",
+                "ds_justificativa": "Teste.",
             },
         )
         assert r.status_code == 400

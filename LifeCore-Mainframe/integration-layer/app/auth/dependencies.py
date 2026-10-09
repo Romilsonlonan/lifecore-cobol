@@ -2,6 +2,7 @@
 Auth Layer — Dependências FastAPI
 Injeção de usuário autenticado + verificação de roles (RBAC)
 """
+
 from __future__ import annotations
 
 from fastapi import Depends, HTTPException, status
@@ -38,7 +39,9 @@ def _extrair_usuario(token: str) -> dict:
     if usuario["fl_ativo"] != "S":
         raise HTTPException(status_code=403, detail="Usuário inativo.")
     if usuario["fl_bloqueado"] == "S":
-        raise HTTPException(status_code=403, detail="Usuário bloqueado por excesso de tentativas.")
+        raise HTTPException(
+            status_code=403, detail="Usuário bloqueado por excesso de tentativas."
+        )
 
     return usuario
 
@@ -56,6 +59,7 @@ def get_current_user_response(token: str = Depends(oauth2_scheme)) -> UsuarioRes
 
 # ── Verificadores de role ─────────────────────────────────────────────────────
 
+
 def require_role(*roles: RoleEnum):
     """
     Factory de dependência que exige um dos roles especificados.
@@ -63,21 +67,25 @@ def require_role(*roles: RoleEnum):
     Uso:
         @router.post("/...", dependencies=[Depends(require_role(RoleEnum.ADMIN))])
     """
+
     def _check(current: dict = Depends(get_current_user)) -> dict:
         role = current.get("cd_role")
         # Aceita tanto enum quanto string
         role_str = role.value if isinstance(role, RoleEnum) else role
-        allowed  = {r.value for r in roles}
+        allowed = {r.value for r in roles}
         if role_str not in allowed:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Acesso negado. Role necessário: {[r.value for r in roles]}.",
             )
         return current
+
     return _check
 
 
-def require_same_empresa(cd_empresa: int, current: dict = Depends(get_current_user)) -> dict:
+def require_same_empresa(
+    cd_empresa: int, current: dict = Depends(get_current_user)
+) -> dict:
     """
     Garante que o usuário só acessa dados da própria empresa,
     a menos que seja ADMIN.
@@ -93,6 +101,6 @@ def require_same_empresa(cd_empresa: int, current: dict = Depends(get_current_us
 
 
 # Dependências prontas para usar nos routers
-AdminOnly      = Depends(require_role(RoleEnum.ADMIN))
+AdminOnly = Depends(require_role(RoleEnum.ADMIN))
 EscritaOuAdmin = Depends(require_role(RoleEnum.ADMIN, RoleEnum.OPERADOR))
 QualquerAutenticado = Depends(get_current_user)

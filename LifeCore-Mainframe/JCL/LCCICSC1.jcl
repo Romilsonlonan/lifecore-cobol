@@ -1,0 +1,142 @@
+//LCCICSC1 JOB (LCIQ),'LIFECORE CICS COMPILE',CLASS=A,
+//            MSGCLASS=X,MSGLEVEL=(1,1),NOTIFY=&SYSUID
+//*--------------------------------------------------------------------*
+//* LCCICSC1 - LIFECORE IQ - COMPILACAO DOS PROGRAMAS CICS             *
+//*                                                                    *
+//*  Passo 1: DFHPC (Pre-processador CICS) - traduz EXEC CICS          *
+//*  Passo 2: IGYCRCTL (Compilador COBOL)                              *
+//*  Passo 3: IEWL (Link-editor)                                        *
+//*                                                                    *
+//*  Repete para LCCICS01 / LCCICS02 / LCCICS03                        *
+//*--------------------------------------------------------------------*
+//*
+//*==================================================================*
+//* LCCICS01 - Controle de Login                                      *
+//*==================================================================*
+//*
+//* PRE-PROCESSADOR CICS
+//*
+//PREC01   EXEC PGM=DFHPC,
+//            PARM='XOPTS(COBOL2 NOEPILOG NOPROLOG SP)'
+//STEPLIB  DD DSN=CICSTS.V5R6M0.CICS.SDFHLOAD,DISP=SHR
+//SYSIN    DD DSN=HERC01.LIFECORE.CICS(LCCICS01),DISP=SHR
+//SYSPRINT DD SYSOUT=*
+//SYSPUNCH DD DSN=&&CICS01,DISP=(,PASS),
+//            UNIT=SYSDA,SPACE=(CYL,(1,1))
+//*
+//* COMPILACAO COBOL
+//*
+//COBC01   EXEC PGM=IGYCRCTL,COND=(0,NE,PREC01),
+//            PARM='RENT,NODYNAM,TRUNC(OPT),OBJECT,NOLIST'
+//STEPLIB  DD DSN=SYS1.LINKLIB,DISP=SHR
+//SYSLIB   DD DSN=HERC01.LIFECORE.COPYLIB,DISP=SHR
+//         DD DSN=CICSTS.V5R6M0.CICS.SDFHCOB,DISP=SHR
+//SYSIN    DD DSN=&&CICS01,DISP=(OLD,DELETE)
+//SYSPRINT DD SYSOUT=*
+//SYSUT1   DD UNIT=SYSDA,SPACE=(CYL,(1,1))
+//SYSUT2   DD UNIT=SYSDA,SPACE=(CYL,(1,1))
+//SYSUT3   DD UNIT=SYSDA,SPACE=(CYL,(1,1))
+//SYSUT4   DD UNIT=SYSDA,SPACE=(CYL,(1,1))
+//SYSUT5   DD UNIT=SYSDA,SPACE=(CYL,(1,1))
+//SYSUT6   DD UNIT=SYSDA,SPACE=(CYL,(1,1))
+//SYSUT7   DD UNIT=SYSDA,SPACE=(CYL,(1,1))
+//SYSLIN   DD DSN=&&LCCOB01,DISP=(,PASS),
+//            UNIT=SYSDA,SPACE=(CYL,(1,1))
+//*
+//* LINK-EDIT
+//*
+//LNKC01   EXEC PGM=IEWL,COND=(0,NE,COBC01),
+//            PARM='REUS,LIST,MAP'
+//SYSLIB   DD DSN=CICSTS.V5R6M0.CICS.SDFHLOAD,DISP=SHR
+//         DD DSN=SYS1.LINKLIB,DISP=SHR
+//SYSLMOD  DD DSN=HERC01.LIFECORE.CICS.LOAD(LCCICS01),
+//            DISP=SHR
+//SYSUT1   DD UNIT=SYSDA,SPACE=(CYL,(1,1))
+//SYSPRINT DD SYSOUT=*
+//SYSLIN   DD DSN=&&LCCOB01,DISP=(OLD,DELETE)
+//         DD *
+  INCLUDE SYSLIB(DFHECI)
+/*
+//*
+//*==================================================================*
+//* LCCICS02 - Menu Principal                                         *
+//*==================================================================*
+//*
+//PREC02   EXEC PGM=DFHPC,COND=(0,NE),
+//            PARM='XOPTS(COBOL2 NOEPILOG NOPROLOG SP)'
+//STEPLIB  DD DSN=CICSTS.V5R6M0.CICS.SDFHLOAD,DISP=SHR
+//SYSIN    DD DSN=HERC01.LIFECORE.CICS(LCCICS02),DISP=SHR
+//SYSPRINT DD SYSOUT=*
+//SYSPUNCH DD DSN=&&CICS02,DISP=(,PASS),
+//            UNIT=SYSDA,SPACE=(CYL,(1,1))
+//*
+//COBC02   EXEC PGM=IGYCRCTL,COND=(0,NE,PREC02),
+//            PARM='RENT,NODYNAM,TRUNC(OPT),OBJECT,NOLIST'
+//SYSLIB   DD DSN=HERC01.LIFECORE.COPYLIB,DISP=SHR
+//         DD DSN=CICSTS.V5R6M0.CICS.SDFHCOB,DISP=SHR
+//SYSIN    DD DSN=&&CICS02,DISP=(OLD,DELETE)
+//SYSPRINT DD SYSOUT=*
+//SYSUT1   DD UNIT=SYSDA,SPACE=(CYL,(1,1))
+//SYSUT2   DD UNIT=SYSDA,SPACE=(CYL,(1,1))
+//SYSUT3   DD UNIT=SYSDA,SPACE=(CYL,(1,1))
+//SYSUT4   DD UNIT=SYSDA,SPACE=(CYL,(1,1))
+//SYSUT5   DD UNIT=SYSDA,SPACE=(CYL,(1,1))
+//SYSUT6   DD UNIT=SYSDA,SPACE=(CYL,(1,1))
+//SYSUT7   DD UNIT=SYSDA,SPACE=(CYL,(1,1))
+//SYSLIN   DD DSN=&&LCCOB02,DISP=(,PASS),
+//            UNIT=SYSDA,SPACE=(CYL,(1,1))
+//*
+//LNKC02   EXEC PGM=IEWL,COND=(0,NE,COBC02),
+//            PARM='REUS,LIST,MAP'
+//SYSLIB   DD DSN=CICSTS.V5R6M0.CICS.SDFHLOAD,DISP=SHR
+//         DD DSN=SYS1.LINKLIB,DISP=SHR
+//SYSLMOD  DD DSN=HERC01.LIFECORE.CICS.LOAD(LCCICS02),
+//            DISP=SHR
+//SYSUT1   DD UNIT=SYSDA,SPACE=(CYL,(1,1))
+//SYSPRINT DD SYSOUT=*
+//SYSLIN   DD DSN=&&LCCOB02,DISP=(OLD,DELETE)
+//         DD *
+  INCLUDE SYSLIB(DFHECI)
+/*
+//*
+//*==================================================================*
+//* LCCICS03 - Consulta de Apolices                                   *
+//*==================================================================*
+//*
+//PREC03   EXEC PGM=DFHPC,COND=(0,NE),
+//            PARM='XOPTS(COBOL2 NOEPILOG NOPROLOG SP)'
+//STEPLIB  DD DSN=CICSTS.V5R6M0.CICS.SDFHLOAD,DISP=SHR
+//SYSIN    DD DSN=HERC01.LIFECORE.CICS(LCCICS03),DISP=SHR
+//SYSPRINT DD SYSOUT=*
+//SYSPUNCH DD DSN=&&CICS03,DISP=(,PASS),
+//            UNIT=SYSDA,SPACE=(CYL,(1,1))
+//*
+//COBC03   EXEC PGM=IGYCRCTL,COND=(0,NE,PREC03),
+//            PARM='RENT,NODYNAM,TRUNC(OPT),OBJECT,NOLIST'
+//SYSLIB   DD DSN=HERC01.LIFECORE.COPYLIB,DISP=SHR
+//         DD DSN=CICSTS.V5R6M0.CICS.SDFHCOB,DISP=SHR
+//SYSIN    DD DSN=&&CICS03,DISP=(OLD,DELETE)
+//SYSPRINT DD SYSOUT=*
+//SYSUT1   DD UNIT=SYSDA,SPACE=(CYL,(1,1))
+//SYSUT2   DD UNIT=SYSDA,SPACE=(CYL,(1,1))
+//SYSUT3   DD UNIT=SYSDA,SPACE=(CYL,(1,1))
+//SYSUT4   DD UNIT=SYSDA,SPACE=(CYL,(1,1))
+//SYSUT5   DD UNIT=SYSDA,SPACE=(CYL,(1,1))
+//SYSUT6   DD UNIT=SYSDA,SPACE=(CYL,(1,1))
+//SYSUT7   DD UNIT=SYSDA,SPACE=(CYL,(1,1))
+//SYSLIN   DD DSN=&&LCCOB03,DISP=(,PASS),
+//            UNIT=SYSDA,SPACE=(CYL,(1,1))
+//*
+//LNKC03   EXEC PGM=IEWL,COND=(0,NE,COBC03),
+//            PARM='REUS,LIST,MAP'
+//SYSLIB   DD DSN=CICSTS.V5R6M0.CICS.SDFHLOAD,DISP=SHR
+//         DD DSN=SYS1.LINKLIB,DISP=SHR
+//SYSLMOD  DD DSN=HERC01.LIFECORE.CICS.LOAD(LCCICS03),
+//            DISP=SHR
+//SYSUT1   DD UNIT=SYSDA,SPACE=(CYL,(1,1))
+//SYSPRINT DD SYSOUT=*
+//SYSLIN   DD DSN=&&LCCOB03,DISP=(OLD,DELETE)
+//         DD *
+  INCLUDE SYSLIB(DFHECI)
+/*
+//*------------------------------------------------------------------*

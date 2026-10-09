@@ -1,0 +1,16 @@
+{
+  // tsconfig.json raiz — apenas para configurar o TypeScript Language Server
+  // no VS Code. Não é usado para build (cada subprojeto tem seu próprio tsconfig).
+  "compilerOptions": {
+    "strict": true,
+    "noEmit": true
+  },
+  "exclude": [
+    // frontend-ts foi removido — exclui para o TS Language Server não procurar
+    "LifeCore-Mainframe/frontend-ts",
+    // node_modules de todos os subprojetos
+    "**/node_modules",
+    "**/.next",
+    "**/out"
+  ]
+}

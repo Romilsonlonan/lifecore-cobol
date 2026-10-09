@@ -5,7 +5,9 @@ Retorna o status atual de um job batch.
 O corretor pode fazer polling neste endpoint após submeter a importação.
 Ciclo típico de status: PENDENTE → EXECUTANDO → CONCLUIDO | ERRO
 """
+
 from fastapi import APIRouter, HTTPException
+
 from app.schemas.apolice import JobStatusResponse
 from app.services.batch_connector import obter_job
 

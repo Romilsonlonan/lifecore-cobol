@@ -1,0 +1,82 @@
+<h2>Sobre este documento</h2>
+<p>Este é o mapa completo dos <strong>18 agentes IA</strong> do LifeCore IQ. Cada agente tem responsabilidade clara, artefatos principais, regras de negócio críticas e padrão de branch/commit.</p>
+
+<h2>Índice de Agentes</h2>
+<table>
+<thead><tr><th>#</th><th>Agente</th><th>Slug</th><th>Epic prefix</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>🧾 Faturamento</td><td>fat</td><td>LCIQ-FAT-*</td></tr>
+<tr><td>2</td><td>🔄 Renovação</td><td>ren</td><td>LCIQ-REN-*</td></tr>
+<tr><td>3</td><td>🛠️ Sustentação</td><td>sus</td><td>LCIQ-SUS-*</td></tr>
+<tr><td>4</td><td>🚀 Melhoria Contínua</td><td>mlc</td><td>LCIQ-MLC-*</td></tr>
+<tr><td>5</td><td>📦 Produto</td><td>prd</td><td>LCIQ-PRD-*</td></tr>
+<tr><td>6</td><td>👥 Segurados</td><td>seg</td><td>LCIQ-SEG-*</td></tr>
+<tr><td>7</td><td>🤝 Corretagem</td><td>cor</td><td>LCIQ-COR-*</td></tr>
+<tr><td>8</td><td>💰 Comissões</td><td>com</td><td>LCIQ-COM-*</td></tr>
+<tr><td>9</td><td>⚖️ Sinistros</td><td>sin</td><td>LCIQ-SIN-*</td></tr>
+<tr><td>10</td><td>🔄 Conciliação</td><td>cnc</td><td>LCIQ-CNC-*</td></tr>
+<tr><td>11</td><td>📁 Arquivos</td><td>arq</td><td>LCIQ-ARQ-*</td></tr>
+<tr><td>12</td><td>🔌 Integrações</td><td>int</td><td>LCIQ-INT-*</td></tr>
+<tr><td>13</td><td>🔎 Qualidade de Dados</td><td>qdt</td><td>LCIQ-QDT-*</td></tr>
+<tr><td>14</td><td>📊 BI/Inteligência</td><td>bia</td><td>LCIQ-BIA-*</td></tr>
+<tr><td>15</td><td>🔐 Governança</td><td>gov</td><td>LCIQ-GOV-*</td></tr>
+<tr><td>16</td><td>🧪 QA/Testes</td><td>qat</td><td>LCIQ-QAT-*</td></tr>
+<tr><td>17</td><td>🤖 Knowledge/RAG</td><td>rag</td><td>LCIQ-RAG-*</td></tr>
+<tr><td>18</td><td>🧠 Orquestrador</td><td>orc</td><td>LCIQ-ORC-*</td></tr>
+</tbody>
+</table>
+
+<h2>Motor de Críticas de Segurados — Catálogo</h2>
+<table>
+<thead><tr><th>Código</th><th>Severidade</th><th>Regra</th></tr></thead>
+<tbody>
+<tr><td>E001</td><td>BLOQ</td><td>CPF com dígito verificador inválido</td></tr>
+<tr><td>E002</td><td>BLOQ</td><td>CPF com formato inválido (≠ 11 dígitos ou todos iguais)</td></tr>
+<tr><td>E003</td><td>BLOQ</td><td>CPF cancelado/suspenso na Receita Federal</td></tr>
+<tr><td>E010</td><td>BLOQ</td><td>Data de nascimento ausente</td></tr>
+<tr><td>E012</td><td>BLOQ</td><td>Segurado menor de 14 anos na data de inclusão</td></tr>
+<tr><td>W025</td><td>MANU</td><td>Segurado com mais de 70 anos — pende liberação manual</td></tr>
+<tr><td>E020</td><td>BLOQ</td><td>CPF já possui cobertura ATIVA nesta apólice</td></tr>
+<tr><td>W042</td><td>ALRT</td><td>Inclusão retroativa > 30 dias</td></tr>
+<tr><td>W043</td><td>ALRT</td><td>Inclusão futura > 60 dias</td></tr>
+</tbody>
+</table>
+
+<h2>Tipos de capital suportados (Produto)</h2>
+<table>
+<thead><tr><th>Código</th><th>Nome</th><th>Cálculo</th></tr></thead>
+<tbody>
+<tr><td>F</td><td>Fixo</td><td>vl_capital definido na apólice</td></tr>
+<tr><td>E</td><td>Escalonado</td><td>Capital varia por faixa etária</td></tr>
+<tr><td>M</td><td>Múltiplo salarial</td><td>vl_salario × nr_fator_mult</td></tr>
+<tr><td>B</td><td>Por faixa</td><td>Capital por faixa de salário</td></tr>
+<tr><td>P</td><td>Por perfil/cargo</td><td>Capital por nível hierárquico</td></tr>
+</tbody>
+</table>
+
+<h2>Padrão de Commit</h2>
+<p><code>{LCIQ-###}: {verbo no imperativo} {o que foi feito}</code></p>
+<p>Exemplos:</p>
+<ul>
+<li>LCIQ-042: adicionar ciclo de faturamento com IPCA</li>
+<li>LCIQ-091: corrigir CPFs inválidos nos testes de movimentação</li>
+<li>LCIQ-203: corrigir S0C7 em FATURA01 por COMP-3 corrompido</li>
+</ul>
+
+<h2>Glossário</h2>
+<table>
+<thead><tr><th>Termo</th><th>Definição</th></tr></thead>
+<tbody>
+<tr><td>Apólice</td><td>Contrato de seguro entre seguradora e estipulante</td></tr>
+<tr><td>Estipulante</td><td>Empresa contratante do seguro coletivo</td></tr>
+<tr><td>Segurado</td><td>Funcionário coberto pela apólice</td></tr>
+<tr><td>Cobertura</td><td>Registro individual de um segurado em uma apólice</td></tr>
+<tr><td>Endosso</td><td>Alteração contratual (inclusão, exclusão, alteração de capital)</td></tr>
+<tr><td>Competência</td><td>Mês de referência do faturamento (formato AAAAMM)</td></tr>
+<tr><td>VGC</td><td>Vida em Grupo Coletivo</td></tr>
+<tr><td>COMP-3</td><td>Formato packed decimal do COBOL (causa S0C7 se corrompido)</td></tr>
+<tr><td>GDG</td><td>Generation Data Group — versionamento de datasets no z/OS</td></tr>
+<tr><td>PAN</td><td>Primary Account Number — número do cartão (nunca armazenar)</td></tr>
+<tr><td>IPCA</td><td>Índice de Preços ao Consumidor Amplo — indexador de seguros (SUSEP)</td></tr>
+</tbody>
+</table>

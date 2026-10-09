@@ -5,7 +5,9 @@ POST   /api/cadastros/congeneres
 GET    /api/cadastros/congeneres/{cd_congenere}
 DELETE /api/cadastros/congeneres/{cd_congenere}
 """
+
 from datetime import datetime
+
 from fastapi import APIRouter, HTTPException, status
 
 from app.schemas.lifecore import (
@@ -75,7 +77,11 @@ def detalhar_congenere(cd_congenere: int):
     return c
 
 
-@router.delete("/{cd_congenere}", status_code=status.HTTP_204_NO_CONTENT, summary="Remove congênere")
+@router.delete(
+    "/{cd_congenere}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Remove congênere",
+)
 def remover_congenere(cd_congenere: int):
     if cd_congenere not in _DB:
         raise HTTPException(404, detail=f"Congênere {cd_congenere} não encontrado.")

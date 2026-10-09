@@ -3,19 +3,21 @@ POST /api/apolices/importar
 Recebe o arquivo do corretor (CSV, XLSX ou JSON),
 converte para o layout fixo CPYAPOL e dispara o ciclo batch.
 """
-from fastapi import APIRouter, File, UploadFile, HTTPException, BackgroundTasks
+
+from datetime import UTC, datetime
 from pathlib import Path
-from datetime import datetime, timezone
+
+from fastapi import APIRouter, BackgroundTasks, File, HTTPException, UploadFile
 
 from app.core.config import settings
 from app.schemas.apolice import ImportacaoResponse, StatusJobEnum
-from app.services.conversor import parse_arquivo, build_flat_file
 from app.services.batch_connector import criar_job, disparar_batch
+from app.services.conversor import build_flat_file, parse_arquivo
 
 router = APIRouter()
 
 _EXTENSOES_PERMITIDAS = {".csv", ".xlsx", ".xls", ".json"}
-_TAMANHO_MAXIMO_BYTES = 10 * 1024 * 1024   # 10 MB
+_TAMANHO_MAXIMO_BYTES = 10 * 1024 * 1024  # 10 MB
 
 
 @router.post(
@@ -55,8 +57,8 @@ async def importar_apolices(
 
     # ── Gera flat file de largura fixa ────────────────────────────
     flat_content = build_flat_file(apolices)
-    timestamp    = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-    flat_path    = settings.data_input_dir / f"APOLICE_{timestamp}"
+    timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+    flat_path = settings.data_input_dir / f"APOLICE_{timestamp}"
     flat_path.write_text(flat_content, encoding="utf-8")
 
     # ── Cria job e dispara em background ──────────────────────────

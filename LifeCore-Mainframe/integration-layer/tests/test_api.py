@@ -4,18 +4,87 @@ Cobre: health, importação/batch (legado), cadastros, emissão,
        sinistro, ECM, impressão, cosseguro, pessoas e painel.
 Não requer COBOL instalado — usa batch_connector = "stub".
 """
-import pytest
-import os
 
-os.environ["BATCH_CONNECTOR"]    = "stub"
-os.environ["DATA_INPUT_DIR"]     = "/tmp/lifecore_test/INPUT"
-os.environ["DATA_OUTPUT_DIR"]    = "/tmp/lifecore_test/OUTPUT"
+import os
+from datetime import UTC, datetime
+
+os.environ["BATCH_CONNECTOR"] = "stub"
+os.environ["DATA_INPUT_DIR"] = "/tmp/lifecore_test/INPUT"
+os.environ["DATA_OUTPUT_DIR"] = "/tmp/lifecore_test/OUTPUT"
 os.environ["DATA_QUARANTINE_DIR"] = "/tmp/lifecore_test/QUARANTINE"
 
+import pytest
 from fastapi.testclient import TestClient
+
+from app.api.cadastros import empresa as empresa_api
 from app.main import app
+from app.repositories.empresa_db2 import Db2Unavailable
+from app.schemas.lifecore import StatusGeralEnum, TipoEmpresaEnum
 
 client = TestClient(app)
+
+
+class _FakeEmpresaRepository:
+    def __init__(self):
+        self.rows = {
+            1: {
+                "cd_empresa": 1,
+                "nr_codigo": "000001",
+                "nm_razao_social": "Prudential do Brasil Seguros de Vida S.A.",
+                "nm_nome_reduzido": "PRUDENTIAL BR",
+                "cd_cnpj": "51990695000137",
+                "tp_empresa": TipoEmpresaEnum.SEGURADORA,
+                "nr_susep": "1000",
+                "vl_capital_vinculado": 100_000_000.00,
+                "vl_capital_subscrito": 200_000_000.00,
+                "vl_aceite_cobranca": 50_000.00,
+                "cd_status": StatusGeralEnum.ATIVO,
+                "dt_inclusao": "20240101",
+                "ts_inclusao": datetime(2024, 1, 1, 8, 0, 0, tzinfo=UTC),
+            }
+        }
+
+    def listar(self, status=None):
+        rows = list(self.rows.values())
+        return [row for row in rows if status is None or row["cd_status"] == status]
+
+    def obter(self, cd_empresa):
+        from app.repositories.empresa_db2 import EmpresaNotFound
+
+        if cd_empresa not in self.rows:
+            raise EmpresaNotFound
+        return self.rows[cd_empresa]
+
+    def criar(self, payload, usuario):
+        from app.repositories.empresa_db2 import EmpresaAlreadyExists
+
+        if any(
+            row["cd_cnpj"] == payload.cd_cnpj
+            or row["nr_codigo"] == payload.nr_codigo
+            for row in self.rows.values()
+        ):
+            raise EmpresaAlreadyExists("Código ou CNPJ já cadastrado.")
+        cd_empresa = max(self.rows) + 1
+        row = {
+            "cd_empresa": cd_empresa,
+            **payload.model_dump(),
+            "cd_status": StatusGeralEnum.ATIVO,
+            "dt_inclusao": "20261005",
+            "ts_inclusao": datetime(2026, 10, 5, tzinfo=UTC),
+        }
+        self.rows[cd_empresa] = row
+        return row
+
+    def alterar_status(self, cd_empresa, status):
+        row = self.obter(cd_empresa)
+        row["cd_status"] = status
+        return row
+
+
+@pytest.fixture(autouse=True)
+def fake_empresa_repository(monkeypatch):
+    monkeypatch.setattr(empresa_api, "empresa_repository", _FakeEmpresaRepository())
+
 
 # ── CSV de teste ─────────────────────────────────────────────────────────────
 
@@ -33,6 +102,7 @@ CSV_VALIDO = (
 # HEALTH
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def test_health():
     r = client.get("/health")
     assert r.status_code == 200
@@ -43,6 +113,7 @@ def test_health():
 # ═══════════════════════════════════════════════════════════════════════════════
 # LEGADO — Importação + Batch
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def test_importar_csv_valido():
     r = client.post(
@@ -99,8 +170,9 @@ def test_resultado_job_inexistente():
 # CADASTROS — Empresa
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def test_listar_empresas():
-    r = client.get("/api/cadastros/empresas")
+    r = client.get("/api/cadastros/empresas", headers=_admin_headers())
     assert r.status_code == 200
     data = r.json()
     assert isinstance(data, list)
@@ -109,14 +181,62 @@ def test_listar_empresas():
 
 
 def test_detalhar_empresa_existente():
-    r = client.get("/api/cadastros/empresas/1")
+    r = client.get("/api/cadastros/empresas/1", headers=_admin_headers())
     assert r.status_code == 200
     assert r.json()["cd_empresa"] == 1
 
 
 def test_detalhar_empresa_inexistente():
-    r = client.get("/api/cadastros/empresas/9999")
+    r = client.get("/api/cadastros/empresas/9999", headers=_admin_headers())
     assert r.status_code == 404
+
+
+def _admin_headers():
+    response = client.post(
+        "/auth/login",
+        json={
+            "cd_email": "admin@lifecore.com.br",
+            "ds_senha": "lifecore@2026",
+        },
+    )
+    assert response.status_code == 200
+    return {"Authorization": f"Bearer {response.json()['access_token']}"}
+
+
+def test_listar_empresas_exige_autenticacao():
+    response = client.get("/api/cadastros/empresas")
+    assert response.status_code == 401
+
+
+def test_criar_empresa_exige_administrador():
+    response = client.post(
+        "/api/cadastros/empresas",
+        json={
+            "nr_codigo": "000002",
+            "nm_razao_social": "Estipulante Teste Ltda",
+            "cd_cnpj": "99887766000100",
+            "tp_empresa": "ES",
+        },
+    )
+    assert response.status_code == 401
+
+
+def test_empresa_indisponivel_sem_db2():
+    class UnavailableRepository:
+        def listar(self, status=None):
+            raise Db2Unavailable("DB2_DSN não foi configurado.")
+
+    empresa_api.empresa_repository = UnavailableRepository()
+    response = client.get("/api/cadastros/empresas", headers=_admin_headers())
+    assert response.status_code == 503
+    assert response.json()["detail"] == "DB2_DSN não foi configurado."
+
+
+def test_alterar_status_empresa_exige_administrador():
+    response = client.put(
+        "/api/cadastros/empresas/1/status", params={"cd_status": "IN"}
+    )
+    assert response.status_code == 401
 
 
 def test_criar_empresa():
@@ -126,7 +246,9 @@ def test_criar_empresa():
         "cd_cnpj": "99887766000100",
         "tp_empresa": "CO",
     }
-    r = client.post("/api/cadastros/empresas", json=payload)
+    r = client.post(
+        "/api/cadastros/empresas", json=payload, headers=_admin_headers()
+    )
     assert r.status_code == 201
     data = r.json()
     assert data["cd_empresa"] >= 2
@@ -137,16 +259,19 @@ def test_criar_empresa_cnpj_duplicado():
     payload = {
         "nr_codigo": "000099",
         "nm_razao_social": "Duplicada",
-        "cd_cnpj": "51990695000137",   # CNPJ da Prudential (seed)
+        "cd_cnpj": "51990695000137",  # CNPJ da Prudential (seed)
         "tp_empresa": "SE",
     }
-    r = client.post("/api/cadastros/empresas", json=payload)
+    r = client.post(
+        "/api/cadastros/empresas", json=payload, headers=_admin_headers()
+    )
     assert r.status_code == 409
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # CADASTROS — Congênere
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def test_listar_congeneres():
     r = client.get("/api/cadastros/congeneres")
@@ -173,6 +298,7 @@ def test_criar_e_deletar_congenere():
 # CADASTROS — Segurado
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def test_criar_segurado_cpf_invalido():
     payload = {
         "cd_cpf": "00000000000",
@@ -197,16 +323,17 @@ def test_listar_segurados():
 
 _NR_PROPOSTA = "2026.PROP.TEST01"
 
+
 def test_criar_proposta():
     payload = {
-        "nr_proposta":      _NR_PROPOSTA,
-        "cd_empresa":       1,
-        "cd_cpf_segurado":  "12345678901",
-        "cd_produto":       "VGC",
-        "tp_capital":       "F",
-        "vl_capital":       100000.00,
-        "vl_premio_bruto":  1055.25,
-        "dt_proposta":      "20260101",
+        "nr_proposta": _NR_PROPOSTA,
+        "cd_empresa": 1,
+        "cd_cpf_segurado": "12345678901",
+        "cd_produto": "VGC",
+        "tp_capital": "F",
+        "vl_capital": 100000.00,
+        "vl_premio_bruto": 1055.25,
+        "dt_proposta": "20260101",
     }
     r = client.post("/api/emissao/propostas", json=payload)
     assert r.status_code == 201
@@ -215,13 +342,13 @@ def test_criar_proposta():
 
 def test_criar_proposta_duplicada():
     payload = {
-        "nr_proposta":      _NR_PROPOSTA,
-        "cd_empresa":       1,
-        "cd_cpf_segurado":  "12345678901",
-        "cd_produto":       "VGC",
-        "tp_capital":       "F",
-        "vl_capital":       100000.00,
-        "dt_proposta":      "20260101",
+        "nr_proposta": _NR_PROPOSTA,
+        "cd_empresa": 1,
+        "cd_cpf_segurado": "12345678901",
+        "cd_produto": "VGC",
+        "tp_capital": "F",
+        "vl_capital": 100000.00,
+        "dt_proposta": "20260101",
     }
     r = client.post("/api/emissao/propostas", json=payload)
     assert r.status_code == 409
@@ -230,8 +357,8 @@ def test_criar_proposta_duplicada():
 def test_aceitar_proposta():
     payload = {
         "nr_proposta": _NR_PROPOSTA,
-        "tp_aceite":   "AU",
-        "id_usuario":  "SYSADM",
+        "tp_aceite": "AU",
+        "id_usuario": "SYSADM",
     }
     r = client.post(f"/api/emissao/propostas/{_NR_PROPOSTA}/aceitar", json=payload)
     assert r.status_code == 200
@@ -249,9 +376,9 @@ def test_listar_apolices_apos_aceite():
 def test_recusar_proposta_ja_aceita():
     payload = {
         "nr_proposta": _NR_PROPOSTA,
-        "cd_motivo":   "R001",
-        "ds_motivo":   "Documentação incompleta",
-        "id_usuario":  "SYSADM",
+        "cd_motivo": "R001",
+        "ds_motivo": "Documentação incompleta",
+        "id_usuario": "SYSADM",
     }
     r = client.post(f"/api/emissao/propostas/{_NR_PROPOSTA}/recusar", json=payload)
     assert r.status_code == 409
@@ -263,20 +390,22 @@ def test_recusar_proposta_ja_aceita():
 
 _NR_SINISTRO = "2026.SIN.TEST01"
 
+
 def test_abrir_sinistro():
     # Limpa estado para garantir idempotência entre runs do pytest
     from app.api.sinistro import sinistro as _sin_mod
+
     _sin_mod._DB.pop(_NR_SINISTRO, None)
 
     payload = {
-        "nr_sinistro":       _NR_SINISTRO,
-        "nr_apolice":        "2026.APO.000001",
-        "cd_cpf_segurado":   "12345678901",
-        "cd_empresa":        1,
-        "cd_tipo_evento":    "MORT",
-        "dt_evento":         "20260115",
-        "dt_abertura":       "20260116",
-        "id_usuario_incl":   "SYSADM",
+        "nr_sinistro": _NR_SINISTRO,
+        "nr_apolice": "2026.APO.000001",
+        "cd_cpf_segurado": "12345678901",
+        "cd_empresa": 1,
+        "cd_tipo_evento": "MORT",
+        "dt_evento": "20260115",
+        "dt_abertura": "20260116",
+        "id_usuario_incl": "SYSADM",
     }
     r = client.post("/api/sinistro", json=payload)
     assert r.status_code == 201
@@ -285,14 +414,14 @@ def test_abrir_sinistro():
 
 def test_abrir_sinistro_duplicado():
     payload = {
-        "nr_sinistro":       _NR_SINISTRO,
-        "nr_apolice":        "2026.APO.000001",
-        "cd_cpf_segurado":   "12345678901",
-        "cd_empresa":        1,
-        "cd_tipo_evento":    "MORT",
-        "dt_evento":         "20260115",
-        "dt_abertura":       "20260116",
-        "id_usuario_incl":   "SYSADM",
+        "nr_sinistro": _NR_SINISTRO,
+        "nr_apolice": "2026.APO.000001",
+        "cd_cpf_segurado": "12345678901",
+        "cd_empresa": 1,
+        "cd_tipo_evento": "MORT",
+        "dt_evento": "20260115",
+        "dt_abertura": "20260116",
+        "id_usuario_incl": "SYSADM",
     }
     r = client.post("/api/sinistro", json=payload)
     assert r.status_code == 409
@@ -300,10 +429,10 @@ def test_abrir_sinistro_duplicado():
 
 def test_analisar_sinistro():
     payload = {
-        "parecer":          "FAVORAVEL",
-        "ds_parecer":       "Documentação completa",
-        "vl_indenizacao":   100000.00,
-        "id_usuario":       "ANALISTA1",
+        "parecer": "FAVORAVEL",
+        "ds_parecer": "Documentação completa",
+        "vl_indenizacao": 100000.00,
+        "id_usuario": "ANALISTA1",
     }
     r = client.put(f"/api/sinistro/{_NR_SINISTRO}/analisar", json=payload)
     assert r.status_code == 200
@@ -312,10 +441,10 @@ def test_analisar_sinistro():
 
 def test_pagar_sinistro():
     payload = {
-        "vl_pago":        100000.00,
-        "dt_pagamento":   "20260120",
-        "nr_doc_banco":   "DOC20260120001",
-        "id_usuario":     "FINANCEIRO",
+        "vl_pago": 100000.00,
+        "dt_pagamento": "20260120",
+        "nr_doc_banco": "DOC20260120001",
+        "id_usuario": "FINANCEIRO",
     }
     r = client.put(f"/api/sinistro/{_NR_SINISTRO}/pagar", json=payload)
     assert r.status_code == 200
@@ -333,12 +462,13 @@ def test_encerrar_sinistro():
 # SINISTRO — ECM
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def test_anexar_e_listar_documento_ecm():
     payload = {
-        "nm_grupo":         "SIN",
-        "nm_tipo":          "Certidão Óbito",
-        "nm_arquivo":       "certidao_obito_12345678901.pdf",
-        "id_usuario_incl":  "ANALISTA1",
+        "nm_grupo": "SIN",
+        "nm_tipo": "Certidão Óbito",
+        "nm_arquivo": "certidao_obito_12345678901.pdf",
+        "id_usuario_incl": "ANALISTA1",
     }
     r_add = client.post(f"/api/sinistro/{_NR_SINISTRO}/documentos", json=payload)
     assert r_add.status_code == 201
@@ -351,9 +481,9 @@ def test_anexar_e_listar_documento_ecm():
 
 def test_grupo_ecm_invalido():
     payload = {
-        "nm_grupo":        "XXX",
-        "nm_tipo":         "Algo",
-        "nm_arquivo":      "arquivo.pdf",
+        "nm_grupo": "XXX",
+        "nm_tipo": "Algo",
+        "nm_arquivo": "arquivo.pdf",
         "id_usuario_incl": "USER",
     }
     r = client.post(f"/api/sinistro/{_NR_SINISTRO}/documentos", json=payload)
@@ -364,6 +494,7 @@ def test_grupo_ecm_invalido():
 # IMPRESSÃO
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def test_listar_controles_impressao():
     r = client.get("/api/impressao/controle")
     assert r.status_code == 200
@@ -372,14 +503,15 @@ def test_listar_controles_impressao():
 
 def test_criar_e_fechar_controle():
     from datetime import datetime
+
     data_hoje = datetime.today().strftime("%Y%m%d")
     payload = {
-        "cd_empresa":             1,
-        "nm_modulo":              "Sinistro",
-        "dt_movimento_contabil":  "20260201",
-        "nr_pendentes":           5,
-        "nr_gerados":             95,
-        "nr_nao_gerados":         0,
+        "cd_empresa": 1,
+        "nm_modulo": "Sinistro",
+        "dt_movimento_contabil": "20260201",
+        "nr_pendentes": 5,
+        "nr_gerados": 95,
+        "nr_nao_gerados": 0,
     }
     r_create = client.post("/api/impressao/controle", json=payload)
     assert r_create.status_code == 201
@@ -394,16 +526,17 @@ def test_criar_e_fechar_controle():
 # COSSEGURO
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def test_criar_e_confirmar_cosseguro():
     payload = {
-        "nr_apolice":           "2026.APO.000001",
-        "cd_congenere_lider":   1,
-        "cd_congenere_segui":   2,
-        "pct_participacao":     30.0,
-        "vl_capital_cedido":    30000.00,
-        "vl_premio_cedido":     315.00,
-        "dt_inicio_vigencia":   "20260101",
-        "dt_fim_vigencia":      "20261231",
+        "nr_apolice": "2026.APO.000001",
+        "cd_congenere_lider": 1,
+        "cd_congenere_segui": 2,
+        "pct_participacao": 30.0,
+        "vl_capital_cedido": 30000.00,
+        "vl_premio_cedido": 315.00,
+        "dt_inicio_vigencia": "20260101",
+        "dt_fim_vigencia": "20261231",
     }
     r_create = client.post("/api/cosseguro/participacoes", json=payload)
     assert r_create.status_code == 201
@@ -420,14 +553,14 @@ def test_criar_e_confirmar_cosseguro():
 
 def test_cosseguro_vigencia_invalida():
     payload = {
-        "nr_apolice":           "2026.APO.ZZZZZ",
-        "cd_congenere_lider":   1,
-        "cd_congenere_segui":   3,
-        "pct_participacao":     20.0,
-        "vl_capital_cedido":    20000.00,
-        "vl_premio_cedido":     200.00,
-        "dt_inicio_vigencia":   "20261231",
-        "dt_fim_vigencia":      "20260101",   # menor que início
+        "nr_apolice": "2026.APO.ZZZZZ",
+        "cd_congenere_lider": 1,
+        "cd_congenere_segui": 3,
+        "pct_participacao": 20.0,
+        "vl_capital_cedido": 20000.00,
+        "vl_premio_cedido": 200.00,
+        "dt_inicio_vigencia": "20261231",
+        "dt_fim_vigencia": "20260101",  # menor que início
     }
     r = client.post("/api/cosseguro/participacoes", json=payload)
     assert r.status_code == 422
@@ -437,6 +570,7 @@ def test_cosseguro_vigencia_invalida():
 # PESSOAS
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def test_listar_pessoas():
     r = client.get("/api/pessoas")
     assert r.status_code == 200
@@ -445,10 +579,10 @@ def test_listar_pessoas():
 
 def test_criar_pessoa():
     payload = {
-        "tp_pessoa":        "PF",
-        "cd_cpf_cnpj":      "55566677788",
-        "nm_pessoa":        "CORRETOR NOVO",
-        "cd_tipo_relacao":  "COR",
+        "tp_pessoa": "PF",
+        "cd_cpf_cnpj": "55566677788",
+        "nm_pessoa": "CORRETOR NOVO",
+        "cd_tipo_relacao": "COR",
     }
     r = client.post("/api/pessoas", json=payload)
     assert r.status_code == 201
@@ -457,10 +591,10 @@ def test_criar_pessoa():
 
 def test_criar_pessoa_tipo_invalido():
     payload = {
-        "tp_pessoa":        "PF",
-        "cd_cpf_cnpj":      "11100011100",
-        "nm_pessoa":        "INVALIDO",
-        "cd_tipo_relacao":  "ZZZ",
+        "tp_pessoa": "PF",
+        "cd_cpf_cnpj": "11100011100",
+        "nm_pessoa": "INVALIDO",
+        "cd_tipo_relacao": "ZZZ",
     }
     r = client.post("/api/pessoas", json=payload)
     assert r.status_code == 422
@@ -469,6 +603,7 @@ def test_criar_pessoa_tipo_invalido():
 # ═══════════════════════════════════════════════════════════════════════════════
 # PAINEL
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def test_painel():
     r = client.get("/api/painel")
@@ -490,8 +625,10 @@ def test_painel():
 # CONVERSOR (legado)
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def test_conversor_csv_para_flat():
-    from app.services.conversor import parse_csv, build_flat_file
+    from app.services.conversor import build_flat_file, parse_csv
+
     apolices = parse_csv(CSV_VALIDO.encode())
     assert len(apolices) == 2
     flat = build_flat_file(apolices)
@@ -505,30 +642,35 @@ def test_conversor_csv_para_flat():
 
 
 def test_conversor_registro_300_chars():
-    from app.services.conversor import parse_csv, apolice_to_fixed
+    from app.services.conversor import apolice_to_fixed, parse_csv
+
     apolices = parse_csv(CSV_VALIDO.encode())
     linha = apolice_to_fixed(apolices[0], 1)
     assert len(linha) == 300
 
 
 def test_conversor_json():
-    from app.services.conversor import parse_json
     import json
-    dados = [{
-        "numero_apolice": "APO000000003",
-        "produto": "VGC",
-        "cnpj_estipulante": "12345678000195",
-        "cpf_segurado": "11122233344",
-        "nome_segurado": "CARLOS SILVA",
-        "vigencia_ini": "20240101",
-        "vigencia_fim": "20251231",
-        "tipo_capital": "F",
-        "capital_segurado": 50000.0,
-        "premio_liquido": 500.0,
-        "premio_bruto": 502.5,
-        "forma_pagamento": "CC",
-        "periodicidade": "MN",
-    }]
+
+    from app.services.conversor import parse_json
+
+    dados = [
+        {
+            "numero_apolice": "APO000000003",
+            "produto": "VGC",
+            "cnpj_estipulante": "12345678000195",
+            "cpf_segurado": "11122233344",
+            "nome_segurado": "CARLOS SILVA",
+            "vigencia_ini": "20240101",
+            "vigencia_fim": "20251231",
+            "tipo_capital": "F",
+            "capital_segurado": 50000.0,
+            "premio_liquido": 500.0,
+            "premio_bruto": 502.5,
+            "forma_pagamento": "CC",
+            "periodicidade": "MN",
+        }
+    ]
     apolices = parse_json(json.dumps(dados).encode())
     assert len(apolices) == 1
     assert apolices[0].numero_apolice == "APO000000003"
