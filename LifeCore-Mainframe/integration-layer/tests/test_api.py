@@ -14,12 +14,11 @@ os.environ["DATA_OUTPUT_DIR"] = "/tmp/lifecore_test/OUTPUT"
 os.environ["DATA_QUARANTINE_DIR"] = "/tmp/lifecore_test/QUARANTINE"
 
 import pytest
-from fastapi.testclient import TestClient
-
 from app.api.cadastros import empresa as empresa_api
 from app.main import app
 from app.repositories.empresa_db2 import Db2Unavailable
 from app.schemas.lifecore import StatusGeralEnum, TipoEmpresaEnum
+from fastapi.testclient import TestClient
 
 client = TestClient(app)
 
@@ -59,8 +58,7 @@ class _FakeEmpresaRepository:
         from app.repositories.empresa_db2 import EmpresaAlreadyExists
 
         if any(
-            row["cd_cnpj"] == payload.cd_cnpj
-            or row["nr_codigo"] == payload.nr_codigo
+            row["cd_cnpj"] == payload.cd_cnpj or row["nr_codigo"] == payload.nr_codigo
             for row in self.rows.values()
         ):
             raise EmpresaAlreadyExists("Código ou CNPJ já cadastrado.")
@@ -233,9 +231,7 @@ def test_empresa_indisponivel_sem_db2():
 
 
 def test_alterar_status_empresa_exige_administrador():
-    response = client.put(
-        "/api/cadastros/empresas/1/status", params={"cd_status": "IN"}
-    )
+    response = client.put("/api/cadastros/empresas/1/status", params={"cd_status": "IN"})
     assert response.status_code == 401
 
 
@@ -246,9 +242,7 @@ def test_criar_empresa():
         "cd_cnpj": "99887766000100",
         "tp_empresa": "CO",
     }
-    r = client.post(
-        "/api/cadastros/empresas", json=payload, headers=_admin_headers()
-    )
+    r = client.post("/api/cadastros/empresas", json=payload, headers=_admin_headers())
     assert r.status_code == 201
     data = r.json()
     assert data["cd_empresa"] >= 2
@@ -262,9 +256,7 @@ def test_criar_empresa_cnpj_duplicado():
         "cd_cnpj": "51990695000137",  # CNPJ da Prudential (seed)
         "tp_empresa": "SE",
     }
-    r = client.post(
-        "/api/cadastros/empresas", json=payload, headers=_admin_headers()
-    )
+    r = client.post("/api/cadastros/empresas", json=payload, headers=_admin_headers())
     assert r.status_code == 409
 
 
@@ -618,7 +610,8 @@ def test_painel():
     assert "Apólices Vigentes" in titulos
     assert "Sinistros Abertos" in titulos
     assert "Segurados Ativos" in titulos
-    assert "Prêmio Mês (R$)" in titulos
+    # Com Supabase ativo: "Apólices Canceladas"; fallback in-memory: "Prêmio Mês (R$)"
+    assert "Apólices Canceladas" in titulos or "Prêmio Mês (R$)" in titulos
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
