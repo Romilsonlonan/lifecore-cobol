@@ -104,13 +104,13 @@ _USUARIOS: dict[int, dict] = {}
 _TOKENS_REVOGADOS: set[str] = set()  # hashes de refresh tokens revogados
 _NEXT_ID = 1
 
-# Seed — admin padrão (senha: lifecore@2026)
+# Seed — admin padrão legado (senha: lifecore@2026)
 _ADMIN_HASH = bcrypt.hashpw(b"lifecore@2026", bcrypt.gensalt()).decode()
 _USUARIOS[1] = {
     "cd_usuario": 1,
     "cd_empresa": 1,
     "nm_nome": "Administrador LifeCore",
-    "cd_email": "admin@lifecore.com.br",
+    "cd_email": "admin@lifecore.com.br",  # presidio: ignore
     "ds_senha_hash": _ADMIN_HASH,
     "cd_role": RoleEnum.ADMIN,
     "fl_ativo": "S",
@@ -122,11 +122,36 @@ _USUARIOS[1] = {
     "dt_ultimo_login": None,
     "hr_ultimo_login": None,
     "id_usuario_incl": "SYSTEM",
+    "nm_empresa": "LifeCore",
 }
-_NEXT_ID = 2
+
+# Seed — admin portal master (senha: 4321)
+_PORTAL_ADMIN_HASH = bcrypt.hashpw(b"4321", bcrypt.gensalt()).decode()
+_USUARIOS[2] = {
+    "cd_usuario": 2,
+    "cd_empresa": 1,
+    "nm_nome": "Portal Admin",
+    "cd_email": "portaladmin@lifecore.com.br",  # presidio: ignore
+    "ds_senha_hash": _PORTAL_ADMIN_HASH,
+    "cd_role": RoleEnum.ADMIN,
+    "fl_ativo": "S",
+    "fl_bloqueado": "N",
+    "nr_tentativas_falha": 0,
+    "nr_cpf": None,
+    "nr_susep": None,
+    "dt_inclusao": datetime.now().strftime("%Y%m%d"),
+    "dt_ultimo_login": None,
+    "hr_ultimo_login": None,
+    "id_usuario_incl": "SYSTEM",
+    "nm_empresa": "LifeCore",
+}
+_NEXT_ID = 3
 
 # Índice e-mail → id
-_EMAIL_IDX: dict[str, int] = {"admin@lifecore.com.br": 1}  # presidio: ignore
+_EMAIL_IDX: dict[str, int] = {
+    "admin@lifecore.com.br": 1,  # presidio: ignore
+    "portaladmin@lifecore.com.br": 2,  # presidio: ignore
+}
 
 
 # ── Funções de hash ───────────────────────────────────────────────────────────

@@ -44,8 +44,9 @@ from app.api.impressao import controle
 from app.api.pessoas import pessoas
 
 # Portal (sem auth — uso do Portal do Corretor)
-from app.api.portal import estipulante as portal_estipulante
+from app.api.portal import agentes as portal_agentes
 from app.api.portal import dashboard as portal_dashboard
+from app.api.portal import estipulante as portal_estipulante
 
 # Sinistro
 from app.api.sinistro import kit_ecm, sinistro
@@ -119,9 +120,7 @@ app.include_router(jobs.router, prefix="/api/jobs", tags=["Jobs Batch"])
 app.include_router(resultados.router, prefix="/api/apolices", tags=["Resultados"])
 
 # ── Cadastros ─────────────────────────────────────────────────────────────────
-app.include_router(
-    empresa.router, prefix="/api/cadastros/empresas", tags=["Cadastros · Empresas"]
-)
+app.include_router(empresa.router, prefix="/api/cadastros/empresas", tags=["Cadastros · Empresas"])
 app.include_router(
     importacao_inicial.router,
     prefix="/api/cadastros/importacoes-iniciais",
@@ -137,12 +136,8 @@ app.include_router(
 )
 
 # ── Emissão ───────────────────────────────────────────────────────────────────
-app.include_router(
-    proposta.router, prefix="/api/emissao/propostas", tags=["Emissão · Propostas"]
-)
-app.include_router(
-    apolice.router, prefix="/api/emissao/apolices", tags=["Emissão · Apólices"]
-)
+app.include_router(proposta.router, prefix="/api/emissao/propostas", tags=["Emissão · Propostas"])
+app.include_router(apolice.router, prefix="/api/emissao/apolices", tags=["Emissão · Apólices"])
 app.include_router(
     config_apolice.router,
     prefix="/api/emissao/apolices/{nr_apolice}",
@@ -158,17 +153,13 @@ app.include_router(
     prefix="/api/emissao/apolices",
     tags=["Consulta Apólice", "Consulta Apólice · Coberturas"],
 )
-app.include_router(
-    ipca_router, prefix="/api/emissao/taxas-ipca", tags=["Faturamento · IPCA"]
-)
+app.include_router(ipca_router, prefix="/api/emissao/taxas-ipca", tags=["Faturamento · IPCA"])
 app.include_router(
     importacao_movimentacao.router,
     prefix="/api/emissao/apolices",
     tags=["Movimentação · Importação"],
 )
-app.include_router(
-    mov_templates_router, prefix="/api/emissao", tags=["Movimentação · Importação"]
-)
+app.include_router(mov_templates_router, prefix="/api/emissao", tags=["Movimentação · Importação"])
 app.include_router(
     importacao_vidas.router,
     prefix="/api/emissao/apolices",
@@ -190,12 +181,8 @@ app.include_router(sinistro.router, prefix="/api/sinistro", tags=["Sinistro"])
 app.include_router(kit_ecm.router, prefix="/api/sinistro", tags=["Sinistro · ECM"])
 
 # ── Operações ─────────────────────────────────────────────────────────────────
-app.include_router(
-    controle.router, prefix="/api/impressao/controle", tags=["Impressão"]
-)
-app.include_router(
-    cosseguro.router, prefix="/api/cosseguro/participacoes", tags=["Cosseguro"]
-)
+app.include_router(controle.router, prefix="/api/impressao/controle", tags=["Impressão"])
+app.include_router(cosseguro.router, prefix="/api/cosseguro/participacoes", tags=["Cosseguro"])
 app.include_router(pessoas.router, prefix="/api/pessoas", tags=["Pessoas"])
 
 # ── Painel ────────────────────────────────────────────────────────────────────
@@ -214,6 +201,11 @@ app.include_router(
     portal_dashboard.router,
     prefix="/api/portal/dashboard",
     tags=["Portal · Dashboard"],
+)
+app.include_router(
+    portal_agentes.router,
+    prefix="/api/portal/agentes",
+    tags=["Portal · Agentes"],
 )
 
 # ── Auth Layer ────────────────────────────────────────────────────────────────
@@ -241,6 +233,7 @@ else:
 def root():
     """Redireciona raiz para o frontend Next.js."""
     from fastapi.responses import RedirectResponse
+
     return RedirectResponse(url="/app/")
 
 
