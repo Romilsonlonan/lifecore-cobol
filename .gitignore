@@ -54,3 +54,6 @@ study-cobol.md
 .env.notion
 agent-study.md
 scripts/notion_publish.py
+
+# ── Hercules local config (configs locais do TK5R, não vão pro GitHub) ─
+local_conf/
