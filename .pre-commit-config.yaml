@@ -1,0 +1,111 @@
+# LifeCore IQ — Pre-commit Hooks
+# Executa antes de cada commit: linting, segurança e detecção de segredos
+# Instalação: pre-commit install
+# Execução manual: pre-commit run --all-files
+
+default_language_version:
+  python: python3.12
+
+repos:
+  # ----------------------------------------------------------------
+  # 1. FORMATAÇÃO E ESTILO PYTHON
+  # ----------------------------------------------------------------
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.4.4
+    hooks:
+      - id: ruff
+        name: "🔍 Ruff lint"
+        args: [--fix, --exit-non-zero-on-fix, --config, LifeCore-Mainframe/integration-layer/ruff.toml]
+        files: ^LifeCore-Mainframe/integration-layer/
+      - id: ruff-format
+        name: "🎨 Ruff format"
+        args: [--config, LifeCore-Mainframe/integration-layer/ruff.toml]
+        files: ^LifeCore-Mainframe/integration-layer/
+
+  # ----------------------------------------------------------------
+  # 2. VERIFICAÇÕES GERAIS DE ARQUIVO
+  # ----------------------------------------------------------------
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+        name: "✂️  Trailing whitespace"
+      - id: end-of-file-fixer
+        name: "📄 End of file fixer"
+      - id: check-yaml
+        name: "📋 YAML syntax"
+      - id: check-json
+        name: "📋 JSON syntax"
+      - id: check-merge-conflict
+        name: "🔀 Merge conflict markers"
+      - id: check-added-large-files
+        name: "📦 Large files (>500KB)"
+        args: [--maxkb=500]
+      - id: detect-private-key
+        name: "🔑 Private keys"
+      - id: check-case-conflict
+        name: "🔤 Case conflicts"
+
+  # ----------------------------------------------------------------
+  # 3. DETECT-SECRETS — credenciais e tokens hardcoded
+  # ----------------------------------------------------------------
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        name: "🔐 Detect secrets"
+        args:
+          - --baseline
+          - .secrets.baseline
+        exclude: |
+          (?x)^(
+            .*\.lock$|
+            .*\.svg$|
+            TESTDATA/.*
+          )$
+
+  # ----------------------------------------------------------------
+  # 4. BANDIT — análise estática de segurança Python (SAST)
+  # Nível HIGH: bloqueia vulnerabilidades críticas; medium aceitável
+  # em configs de dev (ex: /tmp como fallback via os.getenv).
+  # ----------------------------------------------------------------
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.8
+    hooks:
+      - id: bandit
+        name: "🛡️  Bandit SAST"
+        args:
+          - -r
+          - LifeCore-Mainframe/integration-layer/app/
+          - --severity-level=high
+          - --confidence-level=high
+          - -f=txt
+        pass_filenames: false
+
+  # ----------------------------------------------------------------
+  # 5. PRESIDIO — detecção de PII/PAN (LGPD + PCI-DSS)
+  # ----------------------------------------------------------------
+  - repo: local
+    hooks:
+      - id: presidio-pii-scan
+        name: "🔏 Presidio PII/PAN scan (LGPD + PCI-DSS)"
+        language: python
+        entry: python scripts/presidio_hook.py
+        types: [python]
+        files: ^LifeCore-Mainframe/integration-layer/app/
+        additional_dependencies:
+          - presidio-analyzer==2.2.364
+          - presidio-anonymizer==2.2.364
+
+  # ----------------------------------------------------------------
+  # 6. COBOL — verificação de copybooks e padrões PCI
+  # ----------------------------------------------------------------
+  - repo: local
+    hooks:
+      - id: cobol-pci-check
+        name: "🏦 COBOL PCI-DSS check (sem PAN hardcoded)"
+        language: script
+        entry: scripts/cobol_pci_hook.sh
+        types_or: [file]
+        files: \.(cbl|cpy)$
+        pass_filenames: true

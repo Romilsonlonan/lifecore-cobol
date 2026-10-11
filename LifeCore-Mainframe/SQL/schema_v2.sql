@@ -30,7 +30,8 @@
 --   Capital Vinculado, Capital Subscrito, Valor Aceite Cobrança
 -- ----------------------------------------------------------------
 CREATE TABLE EMPRESA (
-    CD_EMPRESA          SERIAL          NOT NULL,
+    CD_EMPRESA          INTEGER         NOT NULL GENERATED ALWAYS AS IDENTITY
+                                            (START WITH 1 INCREMENT BY 1),
     NR_CODIGO           CHAR(6)         NOT NULL,           -- ex: 400
     NM_RAZAO_SOCIAL     VARCHAR(80)     NOT NULL,
     NM_NOME_REDUZIDO    VARCHAR(30),

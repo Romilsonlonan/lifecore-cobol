@@ -11,44 +11,48 @@ Fluxo:
     2. Agente chama buscar_documentacao("FATURA01 campo COMP-3 capital")
     3. Agente sintetiza: "O campo VL-CAPITAL em CPYFATU não foi inicializado..."
 """
+
 from __future__ import annotations
 
 import json
 import logging
 import os
-from typing import Any, Generator
+from collections.abc import Generator
 from dataclasses import dataclass, field
 
 logger = logging.getLogger(__name__)
 
-LLM_BASE_URL = os.getenv("LLM_BASE_URL",  "http://localhost:11434/v1")
-LLM_API_KEY  = os.getenv("LLM_API_KEY",   "ollama")
-LLM_MODEL    = os.getenv("LLM_MODEL",     "llama3.2")
-MAX_TURNS    = int(os.getenv("AGENT_MAX_TURNS", "8"))
+LLM_BASE_URL = os.getenv("LLM_BASE_URL", "http://localhost:11434/v1")
+LLM_API_KEY = os.getenv("LLM_API_KEY", "ollama")
+LLM_MODEL = os.getenv("LLM_MODEL", "llama3.2")
+MAX_TURNS = int(os.getenv("AGENT_MAX_TURNS", "8"))
 
 
 # ── Tipos ─────────────────────────────────────────────────────────────────────
 
+
 @dataclass
 class AgentStep:
     """Um passo do loop ReAct."""
-    turn:        int
-    thought:     str | None       # raciocínio do modelo (se visível)
-    tool_name:   str | None       # tool chamada
-    tool_args:   dict | None      # argumentos da tool
-    tool_result: dict | None      # resultado da execução
-    final:       bool = False     # True = resposta final ao usuário
+
+    turn: int
+    thought: str | None  # raciocínio do modelo (se visível)
+    tool_name: str | None  # tool chamada
+    tool_args: dict | None  # argumentos da tool
+    tool_result: dict | None  # resultado da execução
+    final: bool = False  # True = resposta final ao usuário
 
 
 @dataclass
 class AgentResponse:
-    answer:     str
-    steps:      list[AgentStep] = field(default_factory=list)
+    answer: str
+    steps: list[AgentStep] = field(default_factory=list)
     tool_calls: int = 0
-    error:      str | None = None
+    error: str | None = None
 
 
 # ── Agente ────────────────────────────────────────────────────────────────────
+
 
 class COBOLAgent:
     """
@@ -77,28 +81,31 @@ ler_resultado_job, buscar_documentacao, analisar_abend, listar_apolices."""
 
     def __init__(
         self,
-        tools_schema:   list[dict],
+        tools_schema: list[dict],
         tool_executor,
         rag_engine=None,
-        model:          str = LLM_MODEL,
-        max_turns:      int = MAX_TURNS,
+        model: str = LLM_MODEL,
+        max_turns: int = MAX_TURNS,
     ):
-        self._tools_schema  = tools_schema
+        self._tools_schema = tools_schema
         self._tool_executor = tool_executor
-        self._rag           = rag_engine
-        self._model         = model
-        self._max_turns     = max_turns
-        self._client        = self._build_client()
+        self._rag = rag_engine
+        self._model = model
+        self._max_turns = max_turns
+        self._client = self._build_client()
 
     def _build_client(self):
         try:
             from openai import OpenAI
+
             return OpenAI(base_url=LLM_BASE_URL, api_key=LLM_API_KEY)
         except ImportError:
             logger.warning("openai não instalado — agente em modo stub.")
             return None
 
-    def run(self, user_message: str, conversation_history: list[dict] | None = None) -> AgentResponse:
+    def run(
+        self, user_message: str, conversation_history: list[dict] | None = None
+    ) -> AgentResponse:
         """
         Executa o loop ReAct e retorna a resposta final.
         conversation_history permite manter contexto entre chamadas.
@@ -141,11 +148,19 @@ ler_resultado_job, buscar_documentacao, analisar_abend, listar_apolices."""
             # ── Resposta final (sem tool calls) ──────────────────────────────
             if not msg.tool_calls:
                 answer = msg.content or "Sem resposta do modelo."
-                steps.append(AgentStep(
-                    turn=turn, thought=None, tool_name=None,
-                    tool_args=None, tool_result=None, final=True,
-                ))
-                return AgentResponse(answer=answer, steps=steps, tool_calls=total_tool_calls)
+                steps.append(
+                    AgentStep(
+                        turn=turn,
+                        thought=None,
+                        tool_name=None,
+                        tool_args=None,
+                        tool_result=None,
+                        final=True,
+                    )
+                )
+                return AgentResponse(
+                    answer=answer, steps=steps, tool_calls=total_tool_calls
+                )
 
             # ── Processa tool calls ───────────────────────────────────────────
             messages.append(msg)  # adiciona a mensagem do assistente com tool_calls
@@ -171,11 +186,13 @@ ler_resultado_job, buscar_documentacao, analisar_abend, listar_apolices."""
                 steps.append(step)
 
                 # Retorna resultado da tool para o modelo
-                messages.append({
-                    "role":         "tool",
-                    "tool_call_id": tc.id,
-                    "content":      json.dumps(result, ensure_ascii=False, default=str),
-                })
+                messages.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": tc.id,
+                        "content": json.dumps(result, ensure_ascii=False, default=str),
+                    }
+                )
 
         # Limite de turnos atingido
         return AgentResponse(
@@ -196,7 +213,7 @@ ler_resultado_job, buscar_documentacao, analisar_abend, listar_apolices."""
 
         messages = [
             {"role": "system", "content": self.SYSTEM},
-            {"role": "user",   "content": user_message},
+            {"role": "user", "content": user_message},
         ]
 
         try:
@@ -219,8 +236,10 @@ ler_resultado_job, buscar_documentacao, analisar_abend, listar_apolices."""
 
 # ── Factory ───────────────────────────────────────────────────────────────────
 
+
 def build_agent(rag_engine=None) -> COBOLAgent:
     from app.ai.agents.tools import TOOLS_SCHEMA, execute_tool
+
     return COBOLAgent(
         tools_schema=TOOLS_SCHEMA,
         tool_executor=execute_tool,

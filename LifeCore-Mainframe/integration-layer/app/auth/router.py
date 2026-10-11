@@ -14,45 +14,40 @@ PUT  /auth/usuarios/{id}/senha      → redefine senha (próprio ou ADMIN)
 PUT  /auth/usuarios/{id}/role       → altera role (ADMIN)
 DELETE /auth/usuarios/{id}          → remove (ADMIN)
 """
+
 from __future__ import annotations
 
 import hashlib
-import secrets
 import logging
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+from datetime import UTC, datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 
-from app.auth.models import (
-    LoginRequest,
-    TokenResponse,
-    RefreshRequest,
-    UsuarioCreate,
-    UsuarioResponse,
-    RedefinirSenhaRequest,
-    AlterarStatusRequest,
-    RoleEnum,
-    ACCESS_EXPIRE_MIN,
-    REFRESH_EXPIRE_H,
-    MAX_LOGIN_ATTEMPTS,
-    _TOKENS_REVOGADOS,
-    buscar_por_email,
-    buscar_por_id,
-    criar_usuario,
-    criar_access_token,
-    criar_refresh_token,
-    decodificar_token,
-    hash_senha,
-    verificar_senha,
-    registrar_login_ok,
-    registrar_falha_login,
-    listar_usuarios,
-)
 from app.auth.dependencies import (
     get_current_user,
-    get_current_user_response,
     require_role,
+)
+from app.auth.models import (
+    MAX_LOGIN_ATTEMPTS,
+    REFRESH_EXPIRE_H,
+    AlterarStatusRequest,
+    LoginRequest,
+    RedefinirSenhaRequest,
+    RefreshRequest,
+    RoleEnum,
+    TokenResponse,
+    UsuarioCreate,
+    UsuarioResponse,
+    buscar_por_email,
+    buscar_por_id,
+    criar_access_token,
+    criar_refresh_token,
+    criar_usuario,
+    hash_senha,
+    listar_usuarios,
+    registrar_falha_login,
+    registrar_login_ok,
+    verificar_senha,
 )
 
 logger = logging.getLogger(__name__)
@@ -65,14 +60,16 @@ _REFRESH_STORE: dict[str, dict] = {}
 _AUDIT: list[dict] = []
 
 
-def _auditar(tp_evento: str, cd_usuario: Optional[int], ip: str, detalhe: str = ""):
-    _AUDIT.append({
-        "tp_evento":   tp_evento,
-        "cd_usuario":  cd_usuario,
-        "ip_origem":   ip,
-        "ds_detalhe":  detalhe,
-        "ts_evento":   datetime.now(timezone.utc).isoformat(),
-    })
+def _auditar(tp_evento: str, cd_usuario: int | None, ip: str, detalhe: str = ""):
+    _AUDIT.append(
+        {
+            "tp_evento": tp_evento,
+            "cd_usuario": cd_usuario,
+            "ip_origem": ip,
+            "ds_detalhe": detalhe,
+            "ts_evento": datetime.now(UTC).isoformat(),
+        }
+    )
     logger.info("AUDIT %s uid=%s ip=%s %s", tp_evento, cd_usuario, ip, detalhe)
 
 
@@ -87,6 +84,7 @@ def _to_response(u: dict) -> UsuarioResponse:
 # ═══════════════════════════════════════════════════════════════════════════════
 # LOGIN
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 @router.post(
     "/login",
@@ -118,11 +116,13 @@ def login(payload: LoginRequest, request: Request):
 
     if usuario["fl_ativo"] != "S":
         _auditar("LOGIN_FAIL", cd, ip, "conta inativa")
-        raise HTTPException(status_code=403, detail="Conta inativa. Contate o administrador.")
+        raise HTTPException(
+            status_code=403, detail="Conta inativa. Contate o administrador."
+        )
 
     if not verificar_senha(payload.ds_senha, usuario["ds_senha_hash"]):
         tentativas = registrar_falha_login(cd)
-        restantes  = max(0, MAX_LOGIN_ATTEMPTS - tentativas)
+        restantes = max(0, MAX_LOGIN_ATTEMPTS - tentativas)
         _auditar("LOGIN_FAIL", cd, ip, f"senha incorreta — tentativa {tentativas}")
         msg = f"Credenciais inválidas. {restantes} tentativa(s) restante(s)."
         if restantes == 0:
@@ -136,9 +136,9 @@ def login(payload: LoginRequest, request: Request):
 
     _REFRESH_STORE[token_hash] = {
         "cd_usuario": cd,
-        "expira":     datetime.now(timezone.utc) + timedelta(hours=REFRESH_EXPIRE_H),
-        "revogado":   False,
-        "ip":         ip,
+        "expira": datetime.now(UTC) + timedelta(hours=REFRESH_EXPIRE_H),
+        "revogado": False,
+        "ip": ip,
     }
 
     _auditar("LOGIN_OK", cd, ip)
@@ -157,6 +157,7 @@ def login(payload: LoginRequest, request: Request):
 # REFRESH TOKEN
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 @router.post(
     "/refresh",
     response_model=TokenResponse,
@@ -164,15 +165,21 @@ def login(payload: LoginRequest, request: Request):
 )
 def refresh_token(payload: RefreshRequest, request: Request):
     token_hash = hashlib.sha256(payload.refresh_token.encode()).hexdigest()
-    entry      = _REFRESH_STORE.get(token_hash)
+    entry = _REFRESH_STORE.get(token_hash)
 
     if not entry:
         raise HTTPException(status_code=401, detail="Refresh token inválido.")
     if entry["revogado"]:
-        _auditar("TOKEN_REFRESH", entry["cd_usuario"], _ip(request), "token já revogado")
-        raise HTTPException(status_code=401, detail="Refresh token já utilizado ou revogado.")
-    if datetime.now(timezone.utc) > entry["expira"]:
-        raise HTTPException(status_code=401, detail="Refresh token expirado. Faça login novamente.")
+        _auditar(
+            "TOKEN_REFRESH", entry["cd_usuario"], _ip(request), "token já revogado"
+        )
+        raise HTTPException(
+            status_code=401, detail="Refresh token já utilizado ou revogado."
+        )
+    if datetime.now(UTC) > entry["expira"]:
+        raise HTTPException(
+            status_code=401, detail="Refresh token expirado. Faça login novamente."
+        )
 
     usuario = buscar_por_id(entry["cd_usuario"])
     if not usuario or usuario["fl_ativo"] != "S":
@@ -184,9 +191,9 @@ def refresh_token(payload: RefreshRequest, request: Request):
     novo_raw, novo_hash = criar_refresh_token(entry["cd_usuario"])
     _REFRESH_STORE[novo_hash] = {
         "cd_usuario": entry["cd_usuario"],
-        "expira":     datetime.now(timezone.utc) + timedelta(hours=REFRESH_EXPIRE_H),
-        "revogado":   False,
-        "ip":         _ip(request),
+        "expira": datetime.now(UTC) + timedelta(hours=REFRESH_EXPIRE_H),
+        "revogado": False,
+        "ip": _ip(request),
     }
 
     _auditar("TOKEN_REFRESH", entry["cd_usuario"], _ip(request))
@@ -205,14 +212,17 @@ def refresh_token(payload: RefreshRequest, request: Request):
 # LOGOUT
 # ═══════════════════════════════════════════════════════════════════════════════
 
-@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT, summary="Encerra sessão")
+
+@router.post(
+    "/logout", status_code=status.HTTP_204_NO_CONTENT, summary="Encerra sessão"
+)
 def logout(
     payload: RefreshRequest,
     request: Request,
     current: dict = Depends(get_current_user),
 ):
     token_hash = hashlib.sha256(payload.refresh_token.encode()).hexdigest()
-    entry      = _REFRESH_STORE.get(token_hash)
+    entry = _REFRESH_STORE.get(token_hash)
     if entry:
         entry["revogado"] = True
     _auditar("LOGOUT", current["cd_usuario"], _ip(request))
@@ -222,6 +232,7 @@ def logout(
 # ME
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 @router.get("/me", response_model=UsuarioResponse, summary="Perfil do usuário logado")
 def me(current: dict = Depends(get_current_user)):
     return _to_response(current)
@@ -230,6 +241,7 @@ def me(current: dict = Depends(get_current_user)):
 # ═══════════════════════════════════════════════════════════════════════════════
 # CRUD DE USUÁRIOS
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 @router.post(
     "/usuarios",
@@ -253,7 +265,9 @@ def criar_usuario_endpoint(
         raise HTTPException(status_code=409, detail=str(e))
 
     _auditar(
-        "USUARIO_CRIADO", current["cd_usuario"], _ip(request),
+        "USUARIO_CRIADO",
+        current["cd_usuario"],
+        _ip(request),
         f"novo={payload.cd_email} role={payload.cd_role} empresa={payload.cd_empresa}",
     )
     return _to_response(usuario)
@@ -265,7 +279,7 @@ def criar_usuario_endpoint(
     summary="Lista usuários (ADMIN)",
 )
 def listar_usuarios_endpoint(
-    cd_empresa: Optional[int] = None,
+    cd_empresa: int | None = None,
     current: dict = Depends(require_role(RoleEnum.ADMIN)),
 ):
     """Lista todos os usuários. ADMIN pode filtrar por empresa."""
@@ -288,7 +302,9 @@ def detalhar_usuario(
         raise HTTPException(status_code=403, detail="Acesso negado.")
     u = buscar_por_id(cd_usuario)
     if not u:
-        raise HTTPException(status_code=404, detail=f"Usuário {cd_usuario} não encontrado.")
+        raise HTTPException(
+            status_code=404, detail=f"Usuário {cd_usuario} não encontrado."
+        )
     return _to_response(u)
 
 
@@ -305,12 +321,16 @@ def ativar_usuario(
 ):
     u = buscar_por_id(cd_usuario)
     if not u:
-        raise HTTPException(status_code=404, detail=f"Usuário {cd_usuario} não encontrado.")
-    u["fl_ativo"]             = "S"
-    u["fl_bloqueado"]         = "N"
-    u["nr_tentativas_falha"]  = 0
+        raise HTTPException(
+            status_code=404, detail=f"Usuário {cd_usuario} não encontrado."
+        )
+    u["fl_ativo"] = "S"
+    u["fl_bloqueado"] = "N"
+    u["nr_tentativas_falha"] = 0
     _auditar(
-        "USUARIO_ATIVADO", current["cd_usuario"], _ip(request),
+        "USUARIO_ATIVADO",
+        current["cd_usuario"],
+        _ip(request),
         f"uid={cd_usuario} motivo={payload.motivo}",
     )
     return _to_response(u)
@@ -329,12 +349,18 @@ def desativar_usuario(
 ):
     u = buscar_por_id(cd_usuario)
     if not u:
-        raise HTTPException(status_code=404, detail=f"Usuário {cd_usuario} não encontrado.")
+        raise HTTPException(
+            status_code=404, detail=f"Usuário {cd_usuario} não encontrado."
+        )
     if cd_usuario == current["cd_usuario"]:
-        raise HTTPException(status_code=400, detail="Você não pode desativar a si mesmo.")
+        raise HTTPException(
+            status_code=400, detail="Você não pode desativar a si mesmo."
+        )
     u["fl_ativo"] = "N"
     _auditar(
-        "USUARIO_DESATIVADO", current["cd_usuario"], _ip(request),
+        "USUARIO_DESATIVADO",
+        current["cd_usuario"],
+        _ip(request),
         f"uid={cd_usuario} motivo={payload.motivo}",
     )
     return _to_response(u)
@@ -361,7 +387,9 @@ def redefinir_senha(
 
     u = buscar_por_id(cd_usuario)
     if not u:
-        raise HTTPException(status_code=404, detail=f"Usuário {cd_usuario} não encontrado.")
+        raise HTTPException(
+            status_code=404, detail=f"Usuário {cd_usuario} não encontrado."
+        )
 
     # Próprio usuário deve confirmar senha atual
     if is_proprio and not is_admin:
@@ -386,11 +414,15 @@ def alterar_role(
 ):
     u = buscar_por_id(cd_usuario)
     if not u:
-        raise HTTPException(status_code=404, detail=f"Usuário {cd_usuario} não encontrado.")
+        raise HTTPException(
+            status_code=404, detail=f"Usuário {cd_usuario} não encontrado."
+        )
     role_anterior = u["cd_role"]
     u["cd_role"] = cd_role
     _auditar(
-        "USUARIO_ATIVADO", current["cd_usuario"], _ip(request),
+        "USUARIO_ATIVADO",
+        current["cd_usuario"],
+        _ip(request),
         f"uid={cd_usuario} role {role_anterior} → {cd_role}",
     )
     return _to_response(u)
@@ -406,21 +438,30 @@ def remover_usuario(
     request: Request,
     current: dict = Depends(require_role(RoleEnum.ADMIN)),
 ):
-    from app.auth.models import _USUARIOS, _EMAIL_IDX
+    from app.auth.models import _EMAIL_IDX, _USUARIOS
+
     u = buscar_por_id(cd_usuario)
     if not u:
-        raise HTTPException(status_code=404, detail=f"Usuário {cd_usuario} não encontrado.")
+        raise HTTPException(
+            status_code=404, detail=f"Usuário {cd_usuario} não encontrado."
+        )
     if cd_usuario == current["cd_usuario"]:
         raise HTTPException(status_code=400, detail="Você não pode remover a si mesmo.")
     email = u["cd_email"]
     del _USUARIOS[cd_usuario]
     _EMAIL_IDX.pop(email, None)
-    _auditar("USUARIO_DESATIVADO", current["cd_usuario"], _ip(request), f"uid={cd_usuario} removido")
+    _auditar(
+        "USUARIO_DESATIVADO",
+        current["cd_usuario"],
+        _ip(request),
+        f"uid={cd_usuario} removido",
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # AUDITORIA DE SESSÕES
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 @router.get(
     "/auditoria",

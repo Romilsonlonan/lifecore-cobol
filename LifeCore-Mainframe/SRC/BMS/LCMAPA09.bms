@@ -1,0 +1,48 @@
+         PRINT NOGEN
+***********************************************************************
+* LCMAPA09 - CONSULTA DE LOTE DE CADASTRO INICIAL NO DB2              *
+***********************************************************************
+LCMAPA09 DFHMSD TYPE=&SYSPARM,                                         X
+               LANG=COBOL,                                             X
+               MODE=INOUT,                                             X
+               TERM=3270-2,                                            X
+               CTRL=FREEKB,                                            X
+               STORAGE=AUTO,                                           X
+               TIOAPFX=YES
+LCTIMPA  DFHMDI SIZE=(24,80),                                          X
+               LINE=1,                                                 X
+               COLUMN=1
+         DFHMDF POS=(1,1),LENGTH=79,ATTRB=(PROT,BRT),                  X
+               COLOR=BLUE,                                             X
+               INITIAL='LIFECORE IQ - CONSULTA DE LOTES IMPORTADOS'
+         DFHMDF POS=(3,3),LENGTH=19,ATTRB=(PROT,NORM),                 X
+               INITIAL='ID da importacao:'
+         DFHMDF POS=(3,23),LENGTH=36,ATTRB=(UNPROT,IC,FSET),           X
+               COLOR=GREEN,NAME=IMPID
+         DFHMDF POS=(5,3),LENGTH=12,ATTRB=(PROT,NORM),                 X
+               INITIAL='Situacao:'
+         DFHMDF POS=(5,16),LENGTH=2,ATTRB=(PROT,BRT),                  X
+               COLOR=YELLOW,NAME=IMPST
+         DFHMDF POS=(5,23),LENGTH=18,ATTRB=(PROT,NORM),                X
+               INITIAL='Registros no lote:'
+         DFHMDF POS=(5,42),LENGTH=9,ATTRB=(PROT,BRT),                  X
+               COLOR=YELLOW,NAME=IMPTOT
+         DFHMDF POS=(8,2),LENGTH=73,ATTRB=(PROT,BRT),                  X
+               COLOR=TURQUOISE,                                        X
+               INITIAL='LIN  SUB      MODULO   NOME                    CPF          ST'
+         DFHMDF POS=(9,2),LENGTH=73,ATTRB=(PROT,NORM),                 X
+               NAME=IMPR01
+         DFHMDF POS=(10,2),LENGTH=73,ATTRB=(PROT,NORM),                X
+               NAME=IMPR02
+         DFHMDF POS=(11,2),LENGTH=73,ATTRB=(PROT,NORM),                X
+               NAME=IMPR03
+         DFHMDF POS=(12,2),LENGTH=73,ATTRB=(PROT,NORM),                X
+               NAME=IMPR04
+         DFHMDF POS=(13,2),LENGTH=73,ATTRB=(PROT,NORM),                X
+               NAME=IMPR05
+         DFHMDF POS=(16,2),LENGTH=74,ATTRB=(PROT,BRT),                 X
+               COLOR=YELLOW,NAME=IMPMSG
+         DFHMDF POS=(22,2),LENGTH=73,ATTRB=(PROT,NORM),                X
+               INITIAL='Informe o ID salvo pela API e pressione ENTER. PF3=Menu'
+         DFHMSD TYPE=FINAL
+         END

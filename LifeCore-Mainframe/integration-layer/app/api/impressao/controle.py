@@ -4,10 +4,11 @@ GET    /api/impressao/controle
 POST   /api/impressao/controle
 PUT    /api/impressao/controle/{cd_controle}/fechar
 """
+
 from datetime import datetime
+
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
-from typing import Optional
 
 from app.schemas.lifecore import ControleImpressaoResponse
 
@@ -29,12 +30,12 @@ _NEXT_ID = 2
 
 
 class ControleCreate(BaseModel):
-    cd_empresa:             int
-    nm_modulo:              str = Field(..., max_length=30)
-    dt_movimento_contabil:  str = Field(..., pattern=r"^\d{8}$")
-    nr_pendentes:           int = 0
-    nr_gerados:             int = 0
-    nr_nao_gerados:         int = 0
+    cd_empresa: int
+    nm_modulo: str = Field(..., max_length=30)
+    dt_movimento_contabil: str = Field(..., pattern=r"^\d{8}$")
+    nr_pendentes: int = 0
+    nr_gerados: int = 0
+    nr_nao_gerados: int = 0
 
 
 @router.get(
@@ -97,7 +98,7 @@ def fechar_controle(cd_controle: int, id_usuario: str):
         raise HTTPException(404, detail=f"Controle {cd_controle} não encontrado.")
     if c.get("fl_fechado") == "S":
         raise HTTPException(409, detail="Controle já fechado.")
-    c["fl_fechado"]         = "S"
-    c["dt_fechamento"]      = datetime.today().strftime("%Y%m%d")
-    c["id_usuario_fech"]    = id_usuario
+    c["fl_fechado"] = "S"
+    c["dt_fechamento"] = datetime.today().strftime("%Y%m%d")
+    c["id_usuario_fech"] = id_usuario
     return c

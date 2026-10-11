@@ -12,59 +12,68 @@ Uso local (sem API paga):
   - LLM:        qualquer modelo via openai-compatible API (ollama, lm-studio)
   - VectorDB:   ChromaDB (embedded, sem servidor)
 """
+
 from __future__ import annotations
 
+import hashlib
+import logging
 import os
 import re
-import logging
-from pathlib import Path
-from typing import Optional
 from dataclasses import dataclass, field
+from pathlib import Path
+
+from app.ai.rag.transforms import get_transform
 
 logger = logging.getLogger(__name__)
 
 # ── Config ────────────────────────────────────────────────────────────────────
-EMBED_MODEL   = os.getenv("RAG_EMBED_MODEL",   "all-MiniLM-L6-v2")
-CHROMA_PATH   = os.getenv("RAG_CHROMA_PATH",   "/tmp/lifecore_chroma")
-COLLECTION    = os.getenv("RAG_COLLECTION",     "lifecore_docs")
-LLM_BASE_URL  = os.getenv("LLM_BASE_URL",       "http://localhost:11434/v1")
-LLM_API_KEY   = os.getenv("LLM_API_KEY",        "ollama")
-LLM_MODEL     = os.getenv("LLM_MODEL",          "llama3.2")
-CHUNK_SIZE    = int(os.getenv("RAG_CHUNK_SIZE",  "500"))
+EMBED_MODEL = os.getenv("RAG_EMBED_MODEL", "all-MiniLM-L6-v2")
+CHROMA_PATH = os.getenv("RAG_CHROMA_PATH", "/tmp/lifecore_chroma")
+COLLECTION = os.getenv("RAG_COLLECTION", "lifecore_docs")
+LLM_BASE_URL = os.getenv("LLM_BASE_URL", "http://localhost:11434/v1")
+LLM_API_KEY = os.getenv("LLM_API_KEY", "ollama")
+LLM_MODEL = os.getenv("LLM_MODEL", "llama3.2")
+CHUNK_SIZE = int(os.getenv("RAG_CHUNK_SIZE", "500"))
 CHUNK_OVERLAP = int(os.getenv("RAG_CHUNK_OVERLAP", "80"))
-TOP_K         = int(os.getenv("RAG_TOP_K",       "5"))
+TOP_K = int(os.getenv("RAG_TOP_K", "5"))
+EMBED_BATCH_SIZE = int(os.getenv("RAG_EMBED_BATCH", "64"))
 
 
 # ── Data classes ──────────────────────────────────────────────────────────────
 
+
 @dataclass
 class Document:
     """Unidade de texto indexada no vector store."""
-    doc_id:   str
-    text:     str
+
+    doc_id: str
+    text: str
     metadata: dict = field(default_factory=dict)
 
 
 @dataclass
 class RetrievedChunk:
-    doc_id:    str
-    text:      str
-    score:     float
-    metadata:  dict = field(default_factory=dict)
+    doc_id: str
+    text: str
+    score: float
+    metadata: dict = field(default_factory=dict)
 
 
 @dataclass
 class RAGResponse:
-    answer:         str
-    sources:        list[RetrievedChunk]
-    query:          str
-    model_used:     str
+    answer: str
+    sources: list[RetrievedChunk]
+    query: str
+    model_used: str
     context_tokens: int
 
 
 # ── Chunker ───────────────────────────────────────────────────────────────────
 
-def chunk_text(text: str, size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERLAP) -> list[str]:
+
+def chunk_text(
+    text: str, size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERLAP
+) -> list[str]:
     """
     Divide texto em chunks de tamanho fixo com sobreposição.
     Tenta preservar quebras de parágrafo/seção quando possível.
@@ -90,18 +99,62 @@ def chunk_text(text: str, size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERLAP) 
 
 # ── Embedder ──────────────────────────────────────────────────────────────────
 
-class Embedder:
-    """Wrapper sentence-transformers — roda 100% local em CPU."""
 
-    def __init__(self, model_name: str = EMBED_MODEL):
+class Embedder:
+    """
+    Wrapper sentence-transformers — roda 100% local em CPU.
+
+    Melhorias sobre a versão anterior:
+      - Batching: processa em lotes de EMBED_BATCH_SIZE para não
+        estourar memória em indexações grandes.
+      - Cache in-memory: evita recomputar embeddings de textos
+        idênticos na mesma sessão (ex.: chunks duplicados entre arquivos).
+    """
+
+    def __init__(
+        self, model_name: str = EMBED_MODEL, batch_size: int = EMBED_BATCH_SIZE
+    ):
         from sentence_transformers import SentenceTransformer
+
         logger.info("Carregando modelo de embedding: %s", model_name)
         self._model = SentenceTransformer(model_name)
         self.model_name = model_name
+        self._batch_size = batch_size
+        self._cache: dict[str, list[float]] = {}
+
+    def _cache_key(self, text: str) -> str:
+        return hashlib.md5(text.encode(), usedforsecurity=False).hexdigest()
 
     def embed(self, texts: list[str]) -> list[list[float]]:
-        vecs = self._model.encode(texts, show_progress_bar=False, normalize_embeddings=True)
-        return vecs.tolist()
+        """Embeda lista de textos com batching e cache."""
+        results: list[list[float] | None] = [None] * len(texts)
+        uncached_indices: list[int] = []
+        uncached_texts: list[str] = []
+
+        for i, text in enumerate(texts):
+            key = self._cache_key(text)
+            if key in self._cache:
+                results[i] = self._cache[key]
+            else:
+                uncached_indices.append(i)
+                uncached_texts.append(text)
+
+        # Processa os não cacheados em batches
+        for start in range(0, len(uncached_texts), self._batch_size):
+            batch = uncached_texts[start : start + self._batch_size]
+            vecs = self._model.encode(
+                batch,
+                show_progress_bar=False,
+                normalize_embeddings=True,
+                batch_size=self._batch_size,
+            ).tolist()
+            for j, vec in enumerate(vecs):
+                original_idx = uncached_indices[start + j]
+                key = self._cache_key(uncached_texts[start + j])
+                self._cache[key] = vec
+                results[original_idx] = vec
+
+        return results  # type: ignore[return-value]
 
     def embed_one(self, text: str) -> list[float]:
         return self.embed([text])[0]
@@ -109,18 +162,24 @@ class Embedder:
 
 # ── Vector Store (ChromaDB) ───────────────────────────────────────────────────
 
+
 class VectorStore:
     """ChromaDB persistente — embedded, sem servidor."""
 
     def __init__(self, path: str = CHROMA_PATH, collection: str = COLLECTION):
         import chromadb
+
         self._client = chromadb.PersistentClient(path=path)
-        self._col    = self._client.get_or_create_collection(
+        self._col = self._client.get_or_create_collection(
             name=collection,
             metadata={"hnsw:space": "cosine"},
         )
-        logger.info("ChromaDB → %s | coleção: %s | docs: %d",
-                    path, collection, self._col.count())
+        logger.info(
+            "ChromaDB → %s | coleção: %s | docs: %d",
+            path,
+            collection,
+            self._col.count(),
+        )
 
     def upsert(self, docs: list[Document], embeddings: list[list[float]]) -> None:
         self._col.upsert(
@@ -139,12 +198,14 @@ class VectorStore:
         )
         chunks = []
         for i, doc_id in enumerate(results["ids"][0]):
-            chunks.append(RetrievedChunk(
-                doc_id=doc_id,
-                text=results["documents"][0][i],
-                score=1 - results["distances"][0][i],  # cosine → similaridade
-                metadata=results["metadatas"][0][i] or {},
-            ))
+            chunks.append(
+                RetrievedChunk(
+                    doc_id=doc_id,
+                    text=results["documents"][0][i],
+                    score=1 - results["distances"][0][i],  # cosine → similaridade
+                    metadata=results["metadatas"][0][i] or {},
+                )
+            )
         return chunks
 
     def count(self) -> int:
@@ -157,22 +218,23 @@ class VectorStore:
 
 # ── Indexer ───────────────────────────────────────────────────────────────────
 
+
 class Indexer:
     """Lê arquivos do projeto e os indexa no VectorStore."""
 
     # Extensões e prefixos reconhecidos
     FILE_TYPES = {
-        ".md":  "markdown",
+        ".md": "markdown",
         ".cbl": "cobol",
         ".cpy": "copybook",
         ".jcl": "jcl",
         ".sql": "sql",
-        ".py":  "python",
+        ".py": "python",
     }
 
     def __init__(self, embedder: Embedder, store: VectorStore):
         self._embedder = embedder
-        self._store    = store
+        self._store = store
 
     def index_file(self, path: Path, source_tag: str | None = None) -> int:
         """Indexa um único arquivo. Retorna número de chunks indexados."""
@@ -181,17 +243,18 @@ class Indexer:
             logger.debug("Extensão não suportada: %s", path)
             return 0
 
-        text = path.read_text(encoding="utf-8", errors="replace")
+        raw = path.read_text(encoding="utf-8", errors="replace")
+        text = get_transform(suffix)(raw)  # aplica transform antes de chunkar
         chunks = chunk_text(text)
         if not chunks:
             return 0
 
         docs = [
             Document(
-                doc_id   = f"{path.stem}::{i}",
-                text     = chunk,
-                metadata = {
-                    "source":    source_tag or path.name,
+                doc_id=f"{path.stem}::{i}",
+                text=chunk,
+                metadata={
+                    "source": source_tag or path.name,
                     "file_type": self.FILE_TYPES[suffix],
                     "file_path": str(path),
                     "chunk_idx": i,
@@ -214,17 +277,29 @@ class Indexer:
                 if n:
                     totals[str(path)] = n
         total_chunks = sum(totals.values())
-        logger.info("Indexação concluída: %d arquivos, %d chunks.", len(totals), total_chunks)
+        logger.info(
+            "Indexação concluída: %d arquivos, %d chunks.", len(totals), total_chunks
+        )
         return totals
 
-    def index_text(self, text: str, doc_id: str, metadata: dict | None = None) -> int:
-        """Indexa texto avulso (ex: saída de log, dump de abend)."""
-        chunks = chunk_text(text)
+    def index_text(
+        self,
+        text: str,
+        doc_id: str,
+        metadata: dict | None = None,
+        file_extension: str = "",
+    ) -> int:
+        """
+        Indexa texto avulso (ex: saída de log, dump de abend).
+        Aceita file_extension opcional para aplicar o transform correto.
+        """
+        processed = get_transform(file_extension)(text) if file_extension else text
+        chunks = chunk_text(processed)
         docs = [
             Document(
-                doc_id   = f"{doc_id}::{i}",
-                text     = chunk,
-                metadata = {**(metadata or {}), "source": doc_id, "chunk_idx": i},
+                doc_id=f"{doc_id}::{i}",
+                text=chunk,
+                metadata={**(metadata or {}), "source": doc_id, "chunk_idx": i},
             )
             for i, chunk in enumerate(chunks)
         ]
@@ -234,6 +309,7 @@ class Indexer:
 
 
 # ── RAG Engine ────────────────────────────────────────────────────────────────
+
 
 class RAGEngine:
     """
@@ -262,17 +338,18 @@ Cite a fonte (nome do arquivo) quando relevante."""
     def __init__(
         self,
         embedder: Embedder,
-        store:    VectorStore,
-        model:    str = LLM_MODEL,
+        store: VectorStore,
+        model: str = LLM_MODEL,
     ):
         self._embedder = embedder
-        self._store    = store
-        self._model    = model
-        self._client   = self._build_client()
+        self._store = store
+        self._model = model
+        self._client = self._build_client()
 
     def _build_client(self):
         try:
             from openai import OpenAI
+
             return OpenAI(base_url=LLM_BASE_URL, api_key=LLM_API_KEY)
         except ImportError:
             logger.warning("openai não instalado — geração desabilitada.")
@@ -304,8 +381,7 @@ Cite a fonte (nome do arquivo) quando relevante."""
         context = "\n\n---\n\n".join(context_parts)
 
         user_message = (
-            f"Documentação de referência:\n\n{context}\n\n"
-            f"---\n\nPergunta: {query}"
+            f"Documentação de referência:\n\n{context}\n\n" f"---\n\nPergunta: {query}"
         )
         context_tokens = len(context.split())
 
@@ -323,8 +399,8 @@ Cite a fonte (nome do arquivo) quando relevante."""
             resp = self._client.chat.completions.create(
                 model=self._model,
                 messages=[
-                    {"role": "system",  "content": self.SYSTEM_PROMPT},
-                    {"role": "user",    "content": user_message},
+                    {"role": "system", "content": self.SYSTEM_PROMPT},
+                    {"role": "user", "content": user_message},
                 ],
                 temperature=0.1,
                 max_tokens=1024,
@@ -346,11 +422,12 @@ Cite a fonte (nome do arquivo) quando relevante."""
 # ── Singleton factory ─────────────────────────────────────────────────────────
 _engine: RAGEngine | None = None
 
+
 def get_rag_engine(force_new: bool = False) -> RAGEngine:
     """Retorna a instância singleton do RAGEngine (lazy init)."""
     global _engine
     if _engine is None or force_new:
         embedder = Embedder()
-        store    = VectorStore()
-        _engine  = RAGEngine(embedder, store)
+        store = VectorStore()
+        _engine = RAGEngine(embedder, store)
     return _engine

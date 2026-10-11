@@ -1,0 +1,203 @@
+         PRINT NOGEN
+***********************************************************************
+* LCMAPA03 - LIFECORE IQ - MAPA BMS: CONSULTA DE APOLICES            *
+* Autor  : LifeCore IQ                                                *
+* Data   : 2026-10-04                                                 *
+* Versao : 1.0.0                                                      *
+* Trans  : LCAP                                                       *
+***********************************************************************
+LCMAPA03 DFHMSD TYPE=&SYSPARM,                                         X
+               LANG=COBOL,                                             X
+               MODE=INOUT,                                             X
+               TERM=3270-2,                                            X
+               CTRL=FREEKB,                                            X
+               STORAGE=AUTO,                                           X
+               TIOAPFX=YES
+***********************************************************************
+* MAP: LCTAPOL - CONSULTA/MANUTENCAO DE APOLICE                       *
+***********************************************************************
+LCTAPOL  DFHMDI SIZE=(24,80),                                          X
+               LINE=1,                                                 X
+               COLUMN=1
+*--- CABECALHO --------------------------------------------------------
+         DFHMDF POS=(1,1),                                             X
+               LENGTH=79,                                              X
+               ATTRB=(PROT,BRT),                                       X
+               COLOR=BLUE,                                             X
+               INITIAL='══════════════════════════════════════════════X
+══════════════════════════════'
+         DFHMDF POS=(2,2),                                             X
+               LENGTH=44,                                              X
+               ATTRB=(PROT,BRT),                                       X
+               COLOR=TURQUOISE,                                        X
+               INITIAL='  LIFECORE IQ  V1.0  -  APOLICES            '
+         DFHMDF POS=(3,1),                                             X
+               LENGTH=79,                                              X
+               ATTRB=(PROT,BRT),                                       X
+               COLOR=BLUE,                                             X
+               INITIAL='──────────────────────────────────────────────X
+──────────────────────────────'
+*--- CHAVE DE PESQUISA ------------------------------------------------
+         DFHMDF POS=(5,4),                                             X
+               LENGTH=14,                                              X
+               ATTRB=(PROT,NORM),                                      X
+               COLOR=YELLOW,                                           X
+               INITIAL='Nr. Apolice   :'
+         DFHMDF POS=(5,19),                                            X
+               LENGTH=10,                                              X
+               ATTRB=(NORM,IC,FSET),                                   X
+               COLOR=GREEN,                                            X
+               NAME=LCNRAPO
+         DFHMDF POS=(5,31),                                            X
+               LENGTH=12,                                              X
+               ATTRB=(PROT,NORM),                                      X
+               COLOR=YELLOW,                                           X
+               INITIAL='CNPJ Empresa:'
+         DFHMDF POS=(5,44),                                            X
+               LENGTH=14,                                              X
+               ATTRB=(NORM,FSET),                                      X
+               COLOR=GREEN,                                            X
+               NAME=LCCNPJ
+*--- DADOS DA APOLICE -------------------------------------------------
+         DFHMDF POS=(7,4),                                             X
+               LENGTH=14,                                              X
+               ATTRB=(PROT,NORM),                                      X
+               COLOR=WHITE,                                            X
+               INITIAL='Empresa       :'
+         DFHMDF POS=(7,19),                                            X
+               LENGTH=40,                                              X
+               ATTRB=(PROT,NORM),                                      X
+               COLOR=WHITE,                                            X
+               NAME=LCEMPNM
+         DFHMDF POS=(8,4),                                             X
+               LENGTH=14,                                              X
+               ATTRB=(PROT,NORM),                                      X
+               COLOR=WHITE,                                            X
+               INITIAL='Produto       :'
+         DFHMDF POS=(8,19),                                            X
+               LENGTH=30,                                              X
+               ATTRB=(PROT,NORM),                                      X
+               COLOR=WHITE,                                            X
+               NAME=LCPROD
+         DFHMDF POS=(8,51),                                            X
+               LENGTH=8,                                               X
+               ATTRB=(PROT,NORM),                                      X
+               COLOR=YELLOW,                                           X
+               INITIAL='Status  :'
+         DFHMDF POS=(8,60),                                            X
+               LENGTH=2,                                               X
+               ATTRB=(PROT,BRT),                                       X
+               COLOR=GREEN,                                            X
+               NAME=LCSTATUS
+         DFHMDF POS=(9,4),                                             X
+               LENGTH=14,                                              X
+               ATTRB=(PROT,NORM),                                      X
+               COLOR=WHITE,                                            X
+               INITIAL='Ini. Vigencia :'
+         DFHMDF POS=(9,19),                                            X
+               LENGTH=10,                                              X
+               ATTRB=(PROT,NORM),                                      X
+               COLOR=WHITE,                                            X
+               NAME=LCDTINI
+         DFHMDF POS=(9,31),                                            X
+               LENGTH=14,                                              X
+               ATTRB=(PROT,NORM),                                      X
+               COLOR=WHITE,                                            X
+               INITIAL='Fim Vigencia  :'
+         DFHMDF POS=(9,46),                                            X
+               LENGTH=10,                                              X
+               ATTRB=(PROT,NORM),                                      X
+               COLOR=WHITE,                                            X
+               NAME=LCDTFIM
+         DFHMDF POS=(10,4),                                            X
+               LENGTH=14,                                              X
+               ATTRB=(PROT,NORM),                                      X
+               COLOR=WHITE,                                            X
+               INITIAL='Capital Seg.  :'
+         DFHMDF POS=(10,19),                                           X
+               LENGTH=15,                                              X
+               ATTRB=(PROT,NORM),                                      X
+               COLOR=WHITE,                                            X
+               NAME=LCCAP
+         DFHMDF POS=(10,36),                                           X
+               LENGTH=14,                                              X
+               ATTRB=(PROT,NORM),                                      X
+               COLOR=WHITE,                                            X
+               INITIAL='Premio Mensal :'
+         DFHMDF POS=(10,51),                                           X
+               LENGTH=15,                                              X
+               ATTRB=(PROT,NORM),                                      X
+               COLOR=WHITE,                                            X
+               NAME=LCPREMIO
+*--- LINHA SEPARADORA -------------------------------------------------
+         DFHMDF POS=(11,1),                                            X
+               LENGTH=79,                                              X
+               ATTRB=(PROT,NORM),                                      X
+               COLOR=BLUE,                                             X
+               INITIAL='──────────────────────────────────────────────X
+──────────────────────────────'
+*--- LISTA DE SEGURADOS (cabecalho) -----------------------------------
+         DFHMDF POS=(12,4),                                            X
+               LENGTH=60,                                              X
+               ATTRB=(PROT,BRT),                                       X
+               COLOR=YELLOW,                                           X
+               INITIAL='CPF         NOME                     COBERT  X
+ STATUS  '
+*--- LINHAS DE DADOS (5 linhas de segurados) -------------------------
+         DFHMDF POS=(13,4),                                            X
+               LENGTH=70,                                              X
+               ATTRB=(PROT,NORM),                                      X
+               COLOR=WHITE,                                            X
+               NAME=LCLINHA1
+         DFHMDF POS=(14,4),                                            X
+               LENGTH=70,                                              X
+               ATTRB=(PROT,NORM),                                      X
+               COLOR=WHITE,                                            X
+               NAME=LCLINHA2
+         DFHMDF POS=(15,4),                                            X
+               LENGTH=70,                                              X
+               ATTRB=(PROT,NORM),                                      X
+               COLOR=WHITE,                                            X
+               NAME=LCLINHA3
+         DFHMDF POS=(16,4),                                            X
+               LENGTH=70,                                              X
+               ATTRB=(PROT,NORM),                                      X
+               COLOR=WHITE,                                            X
+               NAME=LCLINHA4
+         DFHMDF POS=(17,4),                                            X
+               LENGTH=70,                                              X
+               ATTRB=(PROT,NORM),                                      X
+               COLOR=WHITE,                                            X
+               NAME=LCLINHA5
+*--- CONTAGEM --------------------------------------------------------
+         DFHMDF POS=(19,4),                                            X
+               LENGTH=12,                                              X
+               ATTRB=(PROT,NORM),                                      X
+               COLOR=YELLOW,                                           X
+               INITIAL='Registros:  '
+         DFHMDF POS=(19,17),                                           X
+               LENGTH=5,                                               X
+               ATTRB=(PROT,NORM),                                      X
+               COLOR=WHITE,                                            X
+               NAME=LCQTD
+*--- MENSAGEM DE ERRO ------------------------------------------------
+         DFHMDF POS=(21,4),                                            X
+               LENGTH=70,                                              X
+               ATTRB=(PROT,BRT),                                       X
+               COLOR=RED,                                              X
+               NAME=LCMSG
+*--- RODAPE ----------------------------------------------------------
+         DFHMDF POS=(23,2),                                            X
+               LENGTH=76,                                              X
+               ATTRB=(PROT,NORM),                                      X
+               COLOR=YELLOW,                                           X
+               INITIAL='PF3=Menu   PF7=Anterior   PF8=Proximo   PF5=X
+Detalhes   ENTER=Pesquisar  '
+         DFHMDF POS=(24,1),                                            X
+               LENGTH=79,                                              X
+               ATTRB=(PROT,BRT),                                       X
+               COLOR=BLUE,                                             X
+               INITIAL='══════════════════════════════════════════════X
+══════════════════════════════'
+         DFHMSD TYPE=FINAL
+         END

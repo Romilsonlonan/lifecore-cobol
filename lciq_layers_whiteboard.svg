@@ -1,0 +1,217 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1200" viewBox="0 0 1800 1200" font-family="'Atlassian Sans', 'Segoe UI', system-ui, sans-serif">
+
+  <rect id="background" x="0" y="0" width="1800" height="1200" fill="#ffffff" />
+
+  <!-- TITLE -->
+  <text id="title" belongs-to="background" x="900" y="52" text-anchor="middle" font-size="28px" font-weight="bold" fill="#172b4d">
+    <tspan x="900" dy="0">LifeCore IQ — Arquitetura em Camadas</tspan>
+  </text>
+
+  <!-- ═══════════════════════════════════════════
+       CAMADA 1 — CLIENTES / FRONTEND (azul)
+  ═══════════════════════════════════════════  -->
+  <rect id="sec-clients" x="60" y="80" width="1680" height="200" fill="#e9f2ff" data-type="section" data-title="Camada 1 — Clientes e Frontend" belongs-to="background" />
+
+  <!-- Portal do Corretor -->
+  <rect id="box-portal" x="100" y="140" width="340" height="110" rx="10" fill="#cce0ff" belongs-to="sec-clients" />
+  <text id="box-portal-lbl" belongs-to="box-portal" x="270" y="188" text-anchor="middle" font-size="16px" font-weight="bold" fill="#0055cc">
+    <tspan x="270" dy="0">Portal do Corretor</tspan>
+  </text>
+  <text id="box-portal-sub" belongs-to="box-portal" x="270" y="212" text-anchor="middle" font-size="12px" fill="#172b4d">
+    <tspan x="270" dy="0">app/static/portal.html</tspan>
+  </text>
+
+  <!-- Dashboard Next.js -->
+  <rect id="box-dash" x="480" y="140" width="340" height="110" rx="10" fill="#cce0ff" belongs-to="sec-clients" />
+  <text id="box-dash-lbl" belongs-to="box-dash" x="650" y="188" text-anchor="middle" font-size="16px" font-weight="bold" fill="#0055cc">
+    <tspan x="650" dy="0">Dashboard</tspan>
+  </text>
+  <text id="box-dash-sub" belongs-to="box-dash" x="650" y="212" text-anchor="middle" font-size="12px" fill="#172b4d">
+    <tspan x="650" dy="0">frontend/ (Next.js)</tspan>
+  </text>
+
+  <!-- 18 Agentes IA -->
+  <rect id="box-agents" x="860" y="140" width="340" height="110" rx="10" fill="#dfd8fd" belongs-to="sec-clients" />
+  <text id="box-agents-lbl" belongs-to="box-agents" x="1030" y="188" text-anchor="middle" font-size="16px" font-weight="bold" fill="#5e4db2">
+    <tspan x="1030" dy="0">18 Agentes IA</tspan>
+  </text>
+  <text id="box-agents-sub" belongs-to="box-agents" x="1030" y="212" text-anchor="middle" font-size="12px" fill="#172b4d">
+    <tspan x="1030" dy="0">LCIQ-FAT / SEG / RAG / ORC…</tspan>
+  </text>
+
+  <!-- APIs Externas -->
+  <rect id="box-ext" x="1240" y="140" width="460" height="110" rx="10" fill="#cce0ff" belongs-to="sec-clients" />
+  <text id="box-ext-lbl" belongs-to="box-ext" x="1470" y="188" text-anchor="middle" font-size="16px" font-weight="bold" fill="#0055cc">
+    <tspan x="1470" dy="0">APIs Externas / Parceiros</tspan>
+  </text>
+  <text id="box-ext-sub" belongs-to="box-ext" x="1470" y="212" text-anchor="middle" font-size="12px" fill="#172b4d">
+    <tspan x="1470" dy="0">Receita Federal · SUSEP · Adquirentes</tspan>
+  </text>
+
+  <!-- ARROW 1: Clients → Integration -->
+  <line id="arr1" data-type="connector" x1="900" y1="280" x2="900" y2="360" begins-at="sec-clients" ends-at="sec-integration" start-anchor="bottom" end-anchor="top" stroke="#85b8ff" stroke-width="3" marker-end="url(#arrBlue)" belongs-to="background" allow-overlap="true" />
+  <text id="arr1-lbl" data-type="pathLabel" data-proportion="0.5" belongs-to="arr1" x="910" y="325" font-size="13px" fill="#0055cc">
+    <tspan x="910" dy="0">JSON / HTTP REST</tspan>
+  </text>
+
+  <!-- ═══════════════════════════════════════════
+       CAMADA 2 — INTEGRATION LAYER (teal)
+  ═══════════════════════════════════════════  -->
+  <rect id="sec-integration" x="60" y="360" width="1680" height="380" fill="#e3fafc" data-type="section" data-title="Camada 2 — Integration Layer (FastAPI 2.1.0 · Python 3.12)" belongs-to="background" />
+
+  <!-- auth -->
+  <rect id="box-auth" x="100" y="430" width="240" height="90" rx="8" fill="#c8f4f9" belongs-to="sec-integration" />
+  <text id="box-auth-lbl" belongs-to="box-auth" x="220" y="468" text-anchor="middle" font-size="14px" font-weight="bold" fill="#206b74">
+    <tspan x="220" dy="0">🔐 auth/</tspan>
+  </text>
+  <text id="box-auth-sub" belongs-to="box-auth" x="220" y="490" text-anchor="middle" font-size="11px" fill="#172b4d">
+    <tspan x="220" dy="0">router · dependencies · models</tspan>
+  </text>
+
+  <!-- api/emissao -->
+  <rect id="box-emissao" x="360" y="430" width="280" height="90" rx="8" fill="#c8f4f9" belongs-to="sec-integration" />
+  <text id="box-emissao-lbl" belongs-to="box-emissao" x="500" y="468" text-anchor="middle" font-size="14px" font-weight="bold" fill="#206b74">
+    <tspan x="500" dy="0">📋 api/emissao/</tspan>
+  </text>
+  <text id="box-emissao-sub" belongs-to="box-emissao" x="500" y="490" text-anchor="middle" font-size="11px" fill="#172b4d">
+    <tspan x="500" dy="0">apolice · faturamento · proposta</tspan>
+  </text>
+
+  <!-- api/sinistro -->
+  <rect id="box-sinistro" x="660" y="430" width="260" height="90" rx="8" fill="#c8f4f9" belongs-to="sec-integration" />
+  <text id="box-sinistro-lbl" belongs-to="box-sinistro" x="790" y="468" text-anchor="middle" font-size="14px" font-weight="bold" fill="#206b74">
+    <tspan x="790" dy="0">⚖️ api/sinistro/</tspan>
+  </text>
+  <text id="box-sinistro-sub" belongs-to="box-sinistro" x="790" y="490" text-anchor="middle" font-size="11px" fill="#172b4d">
+    <tspan x="790" dy="0">sinistro · kit_ecm</tspan>
+  </text>
+
+  <!-- api/outros -->
+  <rect id="box-api-outros" x="940" y="430" width="280" height="90" rx="8" fill="#c8f4f9" belongs-to="sec-integration" />
+  <text id="box-api-outros-lbl" belongs-to="box-api-outros" x="1080" y="468" text-anchor="middle" font-size="14px" font-weight="bold" fill="#206b74">
+    <tspan x="1080" dy="0">📊 api/ (outros)</tspan>
+  </text>
+  <text id="box-api-outros-sub" belongs-to="box-api-outros" x="1080" y="490" text-anchor="middle" font-size="11px" fill="#172b4d">
+    <tspan x="1080" dy="0">corretagem · cadastros · jobs</tspan>
+  </text>
+
+  <!-- ai/rag -->
+  <rect id="box-rag" x="1240" y="430" width="460" height="90" rx="8" fill="#dfd8fd" belongs-to="sec-integration" />
+  <text id="box-rag-lbl" belongs-to="box-rag" x="1470" y="468" text-anchor="middle" font-size="14px" font-weight="bold" fill="#5e4db2">
+    <tspan x="1470" dy="0">🤖 ai/ (RAG · Agents · MCP · Guardrails)</tspan>
+  </text>
+  <text id="box-rag-sub" belongs-to="box-rag" x="1470" y="490" text-anchor="middle" font-size="11px" fill="#172b4d">
+    <tspan x="1470" dy="0">rag/engine · rag/transforms · agents/agent · mcp/server</tspan>
+  </text>
+
+  <!-- services -->
+  <rect id="box-services" x="100" y="550" width="560" height="80" rx="8" fill="#76e0b4" belongs-to="sec-integration" />
+  <text id="box-services-lbl" belongs-to="box-services" x="380" y="583" text-anchor="middle" font-size="14px" font-weight="bold" fill="#216e4e">
+    <tspan x="380" dy="0">⚙️ services/</tspan>
+  </text>
+  <text id="box-services-sub" belongs-to="box-services" x="380" y="605" text-anchor="middle" font-size="11px" fill="#172b4d">
+    <tspan x="380" dy="0">criticas_segurado (E001–W043) · movimentacao_segurados · batch_connector (Zowe)</tspan>
+  </text>
+
+  <!-- schemas + core -->
+  <rect id="box-schemas" x="680" y="550" width="560" height="80" rx="8" fill="#c7f8e3" belongs-to="sec-integration" />
+  <text id="box-schemas-lbl" belongs-to="box-schemas" x="960" y="583" text-anchor="middle" font-size="14px" font-weight="bold" fill="#216e4e">
+    <tspan x="960" dy="0">📐 schemas/ · core/</tspan>
+  </text>
+  <text id="box-schemas-sub" belongs-to="box-schemas" x="960" y="605" text-anchor="middle" font-size="11px" fill="#172b4d">
+    <tspan x="960" dy="0">apolice.py · lifecore.py · config.py · telemetry.py</tspan>
+  </text>
+
+  <!-- tests -->
+  <rect id="box-tests" x="1260" y="550" width="440" height="80" rx="8" fill="#d3f1a7" belongs-to="sec-integration" />
+  <text id="box-tests-lbl" belongs-to="box-tests" x="1480" y="583" text-anchor="middle" font-size="14px" font-weight="bold" fill="#4c6b1f">
+    <tspan x="1480" dy="0">🧪 tests/ (252 testes · cov ≥80%)</tspan>
+  </text>
+  <text id="box-tests-sub" belongs-to="box-tests" x="1480" y="605" text-anchor="middle" font-size="11px" fill="#172b4d">
+    <tspan x="1480" dy="0">pytest · GitHub Actions CI/CD</tspan>
+  </text>
+
+  <!-- ARROW 2: Integration → Mainframe -->
+  <line id="arr2" data-type="connector" x1="900" y1="740" x2="900" y2="820" begins-at="sec-integration" ends-at="sec-mainframe" start-anchor="bottom" end-anchor="top" stroke="#f8e6a0" stroke-width="3" belongs-to="background" allow-overlap="true" />
+  <text id="arr2-lbl" data-type="pathLabel" data-proportion="0.5" belongs-to="arr2" x="910" y="785" font-size="13px" fill="#7f5f01">
+    <tspan x="910" dy="0">arquivos fixos · DATA/INPUT · OUTPUT</tspan>
+  </text>
+
+  <!-- ═══════════════════════════════════════════
+       CAMADA 3 — z/OS MAINFRAME (amarelo)
+  ═══════════════════════════════════════════  -->
+  <rect id="sec-mainframe" x="60" y="820" width="1680" height="300" fill="#fff7d6" data-type="section" data-title="Camada 3 — z/OS Mainframe (COBOL · JCL · DB2 · GDG)" belongs-to="background" />
+
+  <!-- JCL -->
+  <rect id="box-jcl" x="100" y="880" width="360" height="110" rx="8" fill="#ffefae" belongs-to="sec-mainframe" />
+  <text id="box-jcl-lbl" belongs-to="box-jcl" x="280" y="918" text-anchor="middle" font-size="14px" font-weight="bold" fill="#7f5f01">
+    <tspan x="280" dy="0">📋 JCL/ — Ciclo Batch</tspan>
+  </text>
+  <text id="box-jcl-sub" belongs-to="box-jcl" x="280" y="940" text-anchor="middle" font-size="11px" fill="#172b4d">
+    <tspan x="280" dy="0">LCDIA01.jcl (13 steps)</tspan>
+  </text>
+  <text id="box-jcl-sub2" belongs-to="box-jcl" x="280" y="958" text-anchor="middle" font-size="11px" fill="#172b4d">
+    <tspan x="280" dy="0">LCIMP01 · LCSETUP1</tspan>
+  </text>
+  <text id="box-jcl-rc" belongs-to="box-jcl" x="280" y="978" text-anchor="middle" font-size="10px" fill="#974f0c">
+    <tspan x="280" dy="0">RC: 0=OK · 4=AVISO · 8=ERR · 16=ABEND</tspan>
+  </text>
+
+  <!-- COBOL -->
+  <rect id="box-cobol" x="490" y="880" width="440" height="110" rx="8" fill="#ffefae" belongs-to="sec-mainframe" />
+  <text id="box-cobol-lbl" belongs-to="box-cobol" x="710" y="918" text-anchor="middle" font-size="14px" font-weight="bold" fill="#7f5f01">
+    <tspan x="710" dy="0">💻 SRC/COBOL/</tspan>
+  </text>
+  <text id="box-cobol-sub" belongs-to="box-cobol" x="710" y="940" text-anchor="middle" font-size="11px" fill="#172b4d">
+    <tspan x="710" dy="0">FATURA01 · VGCCAP01 · CALCCAP</tspan>
+  </text>
+  <text id="box-cobol-sub2" belongs-to="box-cobol" x="710" y="958" text-anchor="middle" font-size="11px" fill="#172b4d">
+    <tspan x="710" dy="0">CONCIL01 · CLEAR01 · COMIS01</tspan>
+  </text>
+  <text id="box-cobol-sub3" belongs-to="box-cobol" x="710" y="976" text-anchor="middle" font-size="11px" fill="#172b4d">
+    <tspan x="710" dy="0">SETTLE01 · DISPUT01 · ARQVAL01</tspan>
+  </text>
+
+  <!-- COPYLIB + SQL -->
+  <rect id="box-copy" x="960" y="880" width="380" height="110" rx="8" fill="#ffefae" belongs-to="sec-mainframe" />
+  <text id="box-copy-lbl" belongs-to="box-copy" x="1150" y="918" text-anchor="middle" font-size="14px" font-weight="bold" fill="#7f5f01">
+    <tspan x="1150" dy="0">📄 COPYLIB/ · SQL/</tspan>
+  </text>
+  <text id="box-copy-sub" belongs-to="box-copy" x="1150" y="940" text-anchor="middle" font-size="11px" fill="#172b4d">
+    <tspan x="1150" dy="0">CPYAPOL · CPYFATU · CPYPAGT</tspan>
+  </text>
+  <text id="box-copy-sub2" belongs-to="box-copy" x="1150" y="958" text-anchor="middle" font-size="11px" fill="#172b4d">
+    <tspan x="1150" dy="0">CPYCONC · CPYCLR · CPYERRO</tspan>
+  </text>
+  <text id="box-copy-sub3" belongs-to="box-copy" x="1150" y="976" text-anchor="middle" font-size="11px" fill="#172b4d">
+    <tspan x="1150" dy="0">schema_v2.sql (20 tabelas DB2)</tspan>
+  </text>
+
+  <!-- DATA GDG -->
+  <rect id="box-data" x="1370" y="880" width="340" height="110" rx="8" fill="#ffd2cc" belongs-to="sec-mainframe" />
+  <text id="box-data-lbl" belongs-to="box-data" x="1540" y="918" text-anchor="middle" font-size="14px" font-weight="bold" fill="#ae2a19">
+    <tspan x="1540" dy="0">📁 DATA/ — GDG</tspan>
+  </text>
+  <text id="box-data-sub" belongs-to="box-data" x="1540" y="940" text-anchor="middle" font-size="11px" fill="#172b4d">
+    <tspan x="1540" dy="0">INPUT/ · OUTPUT/</tspan>
+  </text>
+  <text id="box-data-sub2" belongs-to="box-data" x="1540" y="958" text-anchor="middle" font-size="11px" fill="#172b4d">
+    <tspan x="1540" dy="0">QUARANTINE/ · GDG/</tspan>
+  </text>
+  <text id="box-data-sub3" belongs-to="box-data" x="1540" y="976" text-anchor="middle" font-size="11px" fill="#172b4d">
+    <tspan x="1540" dy="0">LIFECORE.DATA.*</tspan>
+  </text>
+
+  <!-- FLOW label inside mainframe -->
+  <text id="flow-label" belongs-to="sec-mainframe" x="900" y="1100" text-anchor="middle" font-size="12px" fill="#7f5f01">
+    <tspan x="900" dy="0">Fluxo LCDIA01: ARQVAL01 → importação → VGCCAP01 → FATURA01 → COMIS01 → CONCIL01 → GDG/relatórios</tspan>
+  </text>
+
+  <!-- DEFS for arrow marker -->
+  <defs>
+    <marker id="arrBlue" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L9,3 z" fill="#85b8ff" />
+    </marker>
+  </defs>
+
+</svg>

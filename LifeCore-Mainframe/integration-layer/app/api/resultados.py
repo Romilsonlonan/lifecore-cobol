@@ -3,8 +3,10 @@ GET /api/apolices/resultado/{job_id}
 Lê os arquivos de saída do COBOL (válidos + quarentena) e devolve
 um resumo estruturado para o corretor.
 """
-from fastapi import APIRouter, HTTPException
+
 from pathlib import Path
+
+from fastapi import APIRouter, HTTPException
 
 from app.core.config import settings
 from app.schemas.apolice import (
@@ -37,8 +39,8 @@ def resultado(job_id: str):
             detail=f"Job ainda em andamento (status={job.status}). Tente novamente.",
         )
 
-    validos     = _ler_apolices_validas(settings.data_output_dir / "APOLICE")
-    quarentena  = _ler_quarentena(settings.data_quarantine_dir / "APOLICE")
+    validos = _ler_apolices_validas(settings.data_output_dir / "APOLICE")
+    quarentena = _ler_quarentena(settings.data_quarantine_dir / "APOLICE")
 
     return ResultadoImportacaoResponse(
         job_id=job_id.upper(),
@@ -49,6 +51,7 @@ def resultado(job_id: str):
 
 
 # ── Leitores de arquivo flat ───────────────────────────────────────────────
+
 
 def _ler_apolices_validas(path: Path) -> list[ApoliceResultado]:
     """
@@ -63,17 +66,19 @@ def _ler_apolices_validas(path: Path) -> list[ApoliceResultado]:
             continue
         if len(linha) < 116:
             continue
-        numero  = linha[2:14].strip()
+        numero = linha[2:14].strip()
         cap_raw = linha[101:116].strip()
         try:
             capital = int(cap_raw) / 100 if cap_raw.isdigit() else None
         except ValueError:
             capital = None
-        resultados.append(ApoliceResultado(
-            numero_apolice=numero,
-            status="VALIDO",
-            capital_calculado=capital,
-        ))
+        resultados.append(
+            ApoliceResultado(
+                numero_apolice=numero,
+                status="VALIDO",
+                capital_calculado=capital,
+            )
+        )
     return resultados
 
 
@@ -92,12 +97,14 @@ def _ler_quarentena(path: Path) -> list[ApoliceResultado]:
         if len(linha) < 80:
             continue
         codigo_erro = linha[28:35].strip()
-        chave       = linha[160:180].strip() if len(linha) >= 180 else ""
-        resultados.append(ApoliceResultado(
-            numero_apolice=chave or "(sem chave)",
-            status="ERRO",
-            erro=_descricao_erro(codigo_erro),
-        ))
+        chave = linha[160:180].strip() if len(linha) >= 180 else ""
+        resultados.append(
+            ApoliceResultado(
+                numero_apolice=chave or "(sem chave)",
+                status="ERRO",
+                erro=_descricao_erro(codigo_erro),
+            )
+        )
     return resultados
 
 

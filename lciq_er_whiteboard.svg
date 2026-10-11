@@ -1,0 +1,456 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="3200" height="2400" viewBox="0 0 3200 2400" font-family="'Atlassian Sans', 'Segoe UI', system-ui, sans-serif">
+
+  <!-- BACKGROUND -->
+  <rect id="background" x="0" y="0" width="3200" height="2400" fill="#ffffff" />
+
+  <!-- ══════════════════════════════════════════════════════════
+       TITLE
+  ══════════════════════════════════════════════════════════ -->
+  <text id="title" belongs-to="background" x="1600" y="60" text-anchor="middle" font-size="32px" font-weight="bold" fill="#172b4d">
+    <tspan x="1600" dy="0">LifeCore IQ — Diagrama ER (schema_v2.sql)</tspan>
+  </text>
+  <text id="subtitle" belongs-to="background" x="1600" y="96" text-anchor="middle" font-size="16px" fill="#5e4db2">
+    <tspan x="1600" dy="0">20 tabelas · 8 blocos · DB2 / PostgreSQL compatível com copybooks COBOL</tspan>
+  </text>
+
+  <!-- ══════════════════════════════════════════════════════════
+       BLOCO 1 — CADASTROS (azul)
+  ══════════════════════════════════════════════════════════ -->
+  <rect id="sec-cadastros" x="40" y="120" width="920" height="980" fill="#e9f2ff" data-type="section" data-title="BLOCO 1 — CADASTROS" belongs-to="background" />
+
+  <!-- EMPRESA -->
+  <rect id="card-empresa" x="60" y="180" width="360" height="320" fill="#ffffff" data-type="card" belongs-to="sec-cadastros" />
+  <text id="card-empresa-text" belongs-to="card-empresa" x="80" y="210" font-size="14px" fill="#172b4d">
+    <tspan x="80" dy="0" font-size="16px" font-weight="bold" fill="#0055cc">EMPRESA 🏢</tspan>
+    <tspan x="80" dy="26" font-weight="bold">PK</tspan><tspan dy="0" fill="#172b4d"> CD_EMPRESA (SERIAL)</tspan>
+    <tspan x="80" dy="20" fill="#172b4d">NR_CODIGO CHAR(6)</tspan>
+    <tspan x="80" dy="20" fill="#172b4d">NM_RAZAO_SOCIAL VARCHAR(80)</tspan>
+    <tspan x="80" dy="20" fill="#172b4d">CD_CNPJ CHAR(14) UK</tspan>
+    <tspan x="80" dy="20" fill="#172b4d">TP_EMPRESA CHAR(2)</tspan>
+    <tspan x="80" dy="20" fill="#172b4d">  SE/ES/CO/CN/RE</tspan>
+    <tspan x="80" dy="20" fill="#172b4d">NR_SUSEP CHAR(10)</tspan>
+    <tspan x="80" dy="20" fill="#172b4d">VL_CAPITAL_VINCULADO</tspan>
+    <tspan x="80" dy="20" fill="#172b4d">CD_STATUS CHAR(2) AT/IN</tspan>
+    <tspan x="80" dy="20" fill="#172b4d">TS_INCLUSAO TIMESTAMP</tspan>
+  </text>
+
+  <!-- FILIAL -->
+  <rect id="card-filial" x="460" y="180" width="340" height="220" fill="#ffffff" data-type="card" belongs-to="sec-cadastros" />
+  <text id="card-filial-text" belongs-to="card-filial" x="478" y="210" font-size="14px" fill="#172b4d">
+    <tspan x="478" dy="0" font-size="16px" font-weight="bold" fill="#0055cc">FILIAL 🏢</tspan>
+    <tspan x="478" dy="26" font-weight="bold">PK</tspan><tspan dy="0"> CD_FILIAL (SERIAL)</tspan>
+    <tspan x="478" dy="20" fill="#ae2a19" font-weight="bold">FK</tspan><tspan dy="0"> CD_EMPRESA → EMPRESA</tspan>
+    <tspan x="478" dy="20" fill="#172b4d">NR_CODIGO CHAR(6)</tspan>
+    <tspan x="478" dy="20" fill="#172b4d">NM_FILIAL VARCHAR(60)</tspan>
+    <tspan x="478" dy="20" fill="#172b4d">CD_CNPJ CHAR(14)</tspan>
+    <tspan x="478" dy="20" fill="#172b4d">CD_UF CHAR(2)</tspan>
+    <tspan x="478" dy="20" fill="#172b4d">CD_STATUS CHAR(2)</tspan>
+  </text>
+
+  <!-- CONGENERE -->
+  <rect id="card-congenere" x="460" y="430" width="340" height="220" fill="#ffffff" data-type="card" belongs-to="sec-cadastros" />
+  <text id="card-congenere-text" belongs-to="card-congenere" x="478" y="458" font-size="14px" fill="#172b4d">
+    <tspan x="478" dy="0" font-size="16px" font-weight="bold" fill="#0055cc">CONGENERE 🤝</tspan>
+    <tspan x="478" dy="26" font-weight="bold">PK</tspan><tspan dy="0"> CD_CONGENERE (SERIAL)</tspan>
+    <tspan x="478" dy="20" fill="#ae2a19" font-weight="bold">FK</tspan><tspan dy="0"> CD_EMPRESA → EMPRESA</tspan>
+    <tspan x="478" dy="20" fill="#172b4d">NR_SUSEP CHAR(10)</tspan>
+    <tspan x="478" dy="20" fill="#172b4d">NM_CONGENERE VARCHAR(80)</tspan>
+    <tspan x="478" dy="20" fill="#172b4d">TP_PESSOA PF/PJ</tspan>
+    <tspan x="478" dy="20" fill="#172b4d">CD_STATUS CHAR(2)</tspan>
+  </text>
+
+  <!-- SEGURADO -->
+  <rect id="card-segurado" x="60" y="530" width="360" height="280" fill="#ffffff" data-type="card" belongs-to="sec-cadastros" />
+  <text id="card-segurado-text" belongs-to="card-segurado" x="80" y="558" font-size="14px" fill="#172b4d">
+    <tspan x="80" dy="0" font-size="16px" font-weight="bold" fill="#0055cc">SEGURADO 👤</tspan>
+    <tspan x="80" dy="26" font-weight="bold">PK</tspan><tspan dy="0"> CD_CPF CHAR(11)</tspan>
+    <tspan x="80" dy="20" fill="#ae2a19" font-weight="bold">FK</tspan><tspan dy="0"> CD_EMPRESA → EMPRESA</tspan>
+    <tspan x="80" dy="20" fill="#172b4d">NM_SEGURADO VARCHAR(60)</tspan>
+    <tspan x="80" dy="20" fill="#172b4d">DT_NASCIMENTO CHAR(8)</tspan>
+    <tspan x="80" dy="20" fill="#172b4d">CD_SEXO M/F</tspan>
+    <tspan x="80" dy="20" fill="#172b4d">VL_SALARIO DECIMAL(13,2)</tspan>
+    <tspan x="80" dy="20" fill="#172b4d">NR_MATRICULA CHAR(10)</tspan>
+    <tspan x="80" dy="20" fill="#172b4d">DT_ADMISSAO CHAR(8)</tspan>
+  </text>
+
+  <!-- GRUPO_USUARIO -->
+  <rect id="card-grupo" x="60" y="840" width="360" height="200" fill="#ffffff" data-type="card" belongs-to="sec-cadastros" />
+  <text id="card-grupo-text" belongs-to="card-grupo" x="80" y="865" font-size="14px" fill="#172b4d">
+    <tspan x="80" dy="0" font-size="16px" font-weight="bold" fill="#0055cc">GRUPO_USUARIO 🔐</tspan>
+    <tspan x="80" dy="26" font-weight="bold">PK</tspan><tspan dy="0"> CD_GRUPO (SERIAL)</tspan>
+    <tspan x="80" dy="20" fill="#172b4d">NM_GRUPO VARCHAR(40) UK</tspan>
+    <tspan x="80" dy="20" fill="#172b4d">DS_DESCRICAO VARCHAR(100)</tspan>
+    <tspan x="80" dy="20" fill="#172b4d">FL_ATIVO CHAR(1)</tspan>
+    <tspan x="80" dy="20" fill="#216e4e">15 grupos seed (Admin,</tspan>
+    <tspan x="80" dy="20" fill="#216e4e">Auditoria, Cobrança…)</tspan>
+  </text>
+
+  <!-- MATRICULA_SEQ -->
+  <rect id="card-matseq" x="460" y="680" width="340" height="180" fill="#ffffff" data-type="card" belongs-to="sec-cadastros" />
+  <text id="card-matseq-text" belongs-to="card-matseq" x="478" y="706" font-size="14px" fill="#172b4d">
+    <tspan x="478" dy="0" font-size="16px" font-weight="bold" fill="#0055cc">MATRICULA_SEQ 🔢</tspan>
+    <tspan x="478" dy="26" font-weight="bold">PK</tspan><tspan dy="0"> CD_EMPRESA (1:1)</tspan>
+    <tspan x="478" dy="20" fill="#ae2a19" font-weight="bold">FK</tspan><tspan dy="0"> CD_EMPRESA → EMPRESA</tspan>
+    <tspan x="478" dy="20" fill="#172b4d">NR_SEQ_INICIAL INTEGER</tspan>
+    <tspan x="478" dy="20" fill="#172b4d">NR_SEQ_FINAL INTEGER</tspan>
+    <tspan x="478" dy="20" fill="#172b4d">NR_SEQ_ATUAL INTEGER</tspan>
+  </text>
+
+  <!-- ══════════════════════════════════════════════════════════
+       BLOCO 2 — EMISSÃO (verde)
+  ══════════════════════════════════════════════════════════ -->
+  <rect id="sec-emissao" x="1000" y="120" width="920" height="980" fill="#dffcf0" data-type="section" data-title="BLOCO 2 — EMISSÃO" belongs-to="background" />
+
+  <!-- PROPOSTA -->
+  <rect id="card-proposta" x="1020" y="180" width="380" height="340" fill="#ffffff" data-type="card" belongs-to="sec-emissao" />
+  <text id="card-proposta-text" belongs-to="card-proposta" x="1040" y="210" font-size="14px" fill="#172b4d">
+    <tspan x="1040" dy="0" font-size="16px" font-weight="bold" fill="#216e4e">PROPOSTA 📋</tspan>
+    <tspan x="1040" dy="26" font-weight="bold">PK</tspan><tspan dy="0"> NR_PROPOSTA CHAR(14)</tspan>
+    <tspan x="1040" dy="20" fill="#ae2a19" font-weight="bold">FK</tspan><tspan dy="0"> CD_EMPRESA → EMPRESA</tspan>
+    <tspan x="1040" dy="20" fill="#ae2a19" font-weight="bold">FK</tspan><tspan dy="0"> CD_CPF_SEGURADO → SEGURADO</tspan>
+    <tspan x="1040" dy="20" fill="#172b4d">CD_PRODUTO VGC/GLB</tspan>
+    <tspan x="1040" dy="20" fill="#172b4d">TP_CAPITAL F/E/M/B/P</tspan>
+    <tspan x="1040" dy="20" fill="#172b4d">VL_CAPITAL DECIMAL(15,2)</tspan>
+    <tspan x="1040" dy="20" fill="#172b4d">VL_PREMIO_BRUTO</tspan>
+    <tspan x="1040" dy="20" fill="#172b4d">CD_STATUS AN/AA/PD/AC/RC/CA</tspan>
+    <tspan x="1040" dy="20" fill="#172b4d">TP_ACEITE AU/MA</tspan>
+    <tspan x="1040" dy="20" fill="#172b4d">DT_PROPOSTA · DT_ACEITE</tspan>
+    <tspan x="1040" dy="20" fill="#172b4d">NR_DIAS_ANALISE (15d)</tspan>
+  </text>
+
+  <!-- APOLICE -->
+  <rect id="card-apolice" x="1430" y="180" width="460" height="380" fill="#ffffff" data-type="card" belongs-to="sec-emissao" />
+  <text id="card-apolice-text" belongs-to="card-apolice" x="1450" y="210" font-size="14px" fill="#172b4d">
+    <tspan x="1450" dy="0" font-size="16px" font-weight="bold" fill="#216e4e">APOLICE 📄</tspan>
+    <tspan x="1450" dy="26" font-weight="bold">PK</tspan><tspan dy="0"> NR_APOLICE CHAR(14)</tspan>
+    <tspan x="1450" dy="20" fill="#ae2a19" font-weight="bold">FK</tspan><tspan dy="0"> CD_EMPRESA → EMPRESA</tspan>
+    <tspan x="1450" dy="20" fill="#ae2a19" font-weight="bold">FK</tspan><tspan dy="0"> CD_CPF_SEGURADO → SEGURADO</tspan>
+    <tspan x="1450" dy="20" fill="#ae2a19" font-weight="bold">FK</tspan><tspan dy="0"> NR_PROPOSTA → PROPOSTA</tspan>
+    <tspan x="1450" dy="20" fill="#172b4d">CD_PRODUTO VGC/GLB</tspan>
+    <tspan x="1450" dy="20" fill="#172b4d">TP_CAPITAL F/E/M/B/P</tspan>
+    <tspan x="1450" dy="20" fill="#172b4d">VL_CAPITAL_SEGURADO</tspan>
+    <tspan x="1450" dy="20" fill="#172b4d">VL_SALARIO_BASE · NR_FATOR_MULT</tspan>
+    <tspan x="1450" dy="20" fill="#172b4d">VL_PREMIO_LIQUIDO · VL_IOF</tspan>
+    <tspan x="1450" dy="20" fill="#172b4d">VL_IPCA_APLICADO DECIMAL(5,4)</tspan>
+    <tspan x="1450" dy="20" fill="#172b4d">TP_FORMA_PAGAMENTO BO/CC/DB</tspan>
+    <tspan x="1450" dy="20" fill="#172b4d">DT_VIGENCIA_INI · DT_VIGENCIA_FIM</tspan>
+    <tspan x="1450" dy="20" fill="#172b4d">CD_STATUS AT/CA/SU/EX</tspan>
+  </text>
+
+  <!-- COBERTURA -->
+  <rect id="card-cobertura" x="1020" y="560" width="380" height="220" fill="#ffffff" data-type="card" belongs-to="sec-emissao" />
+  <text id="card-cobertura-text" belongs-to="card-cobertura" x="1040" y="588" font-size="14px" fill="#172b4d">
+    <tspan x="1040" dy="0" font-size="16px" font-weight="bold" fill="#216e4e">COBERTURA 🛡️</tspan>
+    <tspan x="1040" dy="26" font-weight="bold">PK</tspan><tspan dy="0"> CD_COBERTURA CHAR(16)</tspan>
+    <tspan x="1040" dy="20" fill="#ae2a19" font-weight="bold">FK</tspan><tspan dy="0"> NR_APOLICE → APOLICE</tspan>
+    <tspan x="1040" dy="20" fill="#172b4d">CD_TIPO MORT/INVA/DIT/DM/VIAG</tspan>
+    <tspan x="1040" dy="20" fill="#172b4d">NM_COBERTURA VARCHAR(60)</tspan>
+    <tspan x="1040" dy="20" fill="#172b4d">VL_CAPITAL DECIMAL(15,2)</tspan>
+    <tspan x="1040" dy="20" fill="#172b4d">NR_CARENCIA_DIAS (0)</tspan>
+  </text>
+
+  <!-- ══════════════════════════════════════════════════════════
+       BLOCO 3 — SINISTRO (amarelo)
+  ══════════════════════════════════════════════════════════ -->
+  <rect id="sec-sinistro" x="40" y="1140" width="920" height="620" fill="#fff7d6" data-type="section" data-title="BLOCO 3 — SINISTRO" belongs-to="background" />
+
+  <!-- SINISTRO -->
+  <rect id="card-sinistro" x="60" y="1200" width="420" height="340" fill="#ffffff" data-type="card" belongs-to="sec-sinistro" />
+  <text id="card-sinistro-text" belongs-to="card-sinistro" x="80" y="1228" font-size="14px" fill="#172b4d">
+    <tspan x="80" dy="0" font-size="16px" font-weight="bold" fill="#7f5f01">SINISTRO ⚖️</tspan>
+    <tspan x="80" dy="26" font-weight="bold">PK</tspan><tspan dy="0"> NR_SINISTRO CHAR(14)</tspan>
+    <tspan x="80" dy="20" fill="#ae2a19" font-weight="bold">FK</tspan><tspan dy="0"> NR_APOLICE → APOLICE</tspan>
+    <tspan x="80" dy="20" fill="#ae2a19" font-weight="bold">FK</tspan><tspan dy="0"> CD_CPF_SEGURADO → SEGURADO</tspan>
+    <tspan x="80" dy="20" fill="#ae2a19" font-weight="bold">FK</tspan><tspan dy="0"> CD_EMPRESA → EMPRESA</tspan>
+    <tspan x="80" dy="20" fill="#172b4d">CD_TIPO_EVENTO MORT/INVA/DIT</tspan>
+    <tspan x="80" dy="20" fill="#172b4d">DT_EVENTO · DT_ABERTURA</tspan>
+    <tspan x="80" dy="20" fill="#172b4d">VL_CAPITAL_AVERBADO</tspan>
+    <tspan x="80" dy="20" fill="#172b4d">VL_INDENIZACAO · VL_PAGO</tspan>
+    <tspan x="80" dy="20" fill="#172b4d">CD_STATUS AB/AN/PG/EN/RC</tspan>
+    <tspan x="80" dy="20" fill="#172b4d">DS_OBSERVACAO VARCHAR(200)</tspan>
+  </text>
+
+  <!-- KIT_SINISTRO -->
+  <rect id="card-kit" x="510" y="1200" width="420" height="240" fill="#ffffff" data-type="card" belongs-to="sec-sinistro" />
+  <text id="card-kit-text" belongs-to="card-kit" x="530" y="1228" font-size="14px" fill="#172b4d">
+    <tspan x="530" dy="0" font-size="16px" font-weight="bold" fill="#7f5f01">KIT_SINISTRO 📂</tspan>
+    <tspan x="530" dy="26" font-weight="bold">PK</tspan><tspan dy="0"> CD_KIT (SERIAL)</tspan>
+    <tspan x="530" dy="20" fill="#ae2a19" font-weight="bold">FK</tspan><tspan dy="0"> NR_SINISTRO → SINISTRO</tspan>
+    <tspan x="530" dy="20" fill="#172b4d">NM_TIPO_KIT VARCHAR(40)</tspan>
+    <tspan x="530" dy="20" fill="#172b4d">NM_DOCUMENTO VARCHAR(100)</tspan>
+    <tspan x="530" dy="20" fill="#172b4d">NM_ARQUIVO VARCHAR(200)</tspan>
+    <tspan x="530" dy="20" fill="#172b4d">CD_STATUS PE/EN/OK</tspan>
+  </text>
+
+  <!-- ══════════════════════════════════════════════════════════
+       BLOCO 4 — FINANCEIRO (laranja)
+  ══════════════════════════════════════════════════════════ -->
+  <rect id="sec-financeiro" x="1000" y="1140" width="1200" height="840" fill="#fff5eb" data-type="section" data-title="BLOCO 4 — FINANCEIRO" belongs-to="background" />
+
+  <!-- FATURA -->
+  <rect id="card-fatura" x="1020" y="1200" width="380" height="360" fill="#ffffff" data-type="card" belongs-to="sec-financeiro" />
+  <text id="card-fatura-text" belongs-to="card-fatura" x="1040" y="1228" font-size="14px" fill="#172b4d">
+    <tspan x="1040" dy="0" font-size="16px" font-weight="bold" fill="#974f0c">FATURA 🧾</tspan>
+    <tspan x="1040" dy="26" font-weight="bold">PK</tspan><tspan dy="0"> NR_FATURA CHAR(14)</tspan>
+    <tspan x="1040" dy="20" fill="#ae2a19" font-weight="bold">FK</tspan><tspan dy="0"> CD_EMPRESA → EMPRESA</tspan>
+    <tspan x="1040" dy="20" fill="#172b4d">CD_COMPETENCIA CHAR(6) AAAAMM</tspan>
+    <tspan x="1040" dy="20" fill="#172b4d">DT_EMISSAO · DT_VENCIMENTO</tspan>
+    <tspan x="1040" dy="20" fill="#172b4d">QT_APOLICES INTEGER</tspan>
+    <tspan x="1040" dy="20" fill="#172b4d">VL_BRUTO · VL_LIQUIDO · VL_PAGO</tspan>
+    <tspan x="1040" dy="20" fill="#172b4d">CD_STATUS PE/PG/PP/AT/CA</tspan>
+    <tspan x="1040" dy="20" fill="#172b4d">TP_FORMA_PAGAMENTO BO/CC/DB</tspan>
+    <tspan x="1040" dy="20" fill="#172b4d">DS_NOSSO_NUMERO CHAR(20)</tspan>
+    <tspan x="1040" dy="20" fill="#172b4d">DS_LINHA_DIGITAVEL CHAR(47)</tspan>
+    <tspan x="1040" dy="20" fill="#172b4d">NR_REMESSA (SUSEP)</tspan>
+  </text>
+
+  <!-- PAGAMENTO -->
+  <rect id="card-pagamento" x="1430" y="1200" width="380" height="340" fill="#ffffff" data-type="card" belongs-to="sec-financeiro" />
+  <text id="card-pagamento-text" belongs-to="card-pagamento" x="1450" y="1228" font-size="14px" fill="#172b4d">
+    <tspan x="1450" dy="0" font-size="16px" font-weight="bold" fill="#974f0c">PAGAMENTO 💳</tspan>
+    <tspan x="1450" dy="26" font-weight="bold">PK</tspan><tspan dy="0"> NR_PAGAMENTO CHAR(16)</tspan>
+    <tspan x="1450" dy="20" fill="#ae2a19" font-weight="bold">FK</tspan><tspan dy="0"> NR_FATURA → FATURA</tspan>
+    <tspan x="1450" dy="20" fill="#172b4d">DT_PAGAMENTO CHAR(8)</tspan>
+    <tspan x="1450" dy="20" fill="#172b4d">VL_PAGAMENTO DECIMAL(15,2)</tspan>
+    <tspan x="1450" dy="20" fill="#172b4d">TP_FORMA BO/CC/DB</tspan>
+    <tspan x="1450" dy="20" fill="#172b4d">CD_STATUS CF/CA/ES/CB</tspan>
+    <tspan x="1450" dy="20" fill="#172b4d">CD_BANDEIRA · DS_TOKEN_CARTAO</tspan>
+    <tspan x="1450" dy="20" fill="#ae2a19">⚠️ NR_CARTAO_ULTIMOS4 only</tspan>
+    <tspan x="1450" dy="20" fill="#ae2a19">(PCI-DSS — no PAN storage)</tspan>
+    <tspan x="1450" dy="20" fill="#172b4d">NR_NSU · CD_AUTORIZACAO</tspan>
+  </text>
+
+  <!-- CONCILIACAO -->
+  <rect id="card-concil" x="1020" y="1590" width="380" height="260" fill="#ffffff" data-type="card" belongs-to="sec-financeiro" />
+  <text id="card-concil-text" belongs-to="card-concil" x="1040" y="1618" font-size="14px" fill="#172b4d">
+    <tspan x="1040" dy="0" font-size="16px" font-weight="bold" fill="#974f0c">CONCILIACAO 🔄</tspan>
+    <tspan x="1040" dy="26" font-weight="bold">PK</tspan><tspan dy="0"> NR_CONCILIACAO CHAR(16)</tspan>
+    <tspan x="1040" dy="20" fill="#ae2a19" font-weight="bold">FK</tspan><tspan dy="0"> NR_FATURA → FATURA</tspan>
+    <tspan x="1040" dy="20" fill="#172b4d">NR_PAGAMENTO CHAR(16)</tspan>
+    <tspan x="1040" dy="20" fill="#172b4d">VL_FATURADO · VL_PAGO</tspan>
+    <tspan x="1040" dy="20" fill="#172b4d">VL_DIFERENCA DECIMAL(13,2)</tspan>
+    <tspan x="1040" dy="20" fill="#172b4d">CD_STATUS OK/DV/SP/SF/DU/CB</tspan>
+    <tspan x="1040" dy="20" fill="#172b4d">NR_NSU · CD_CICLO_CLEARING</tspan>
+  </text>
+
+  <!-- DISPUTA -->
+  <rect id="card-disputa" x="1430" y="1590" width="340" height="240" fill="#ffffff" data-type="card" belongs-to="sec-financeiro" />
+  <text id="card-disputa-text" belongs-to="card-disputa" x="1450" y="1618" font-size="14px" fill="#172b4d">
+    <tspan x="1450" dy="0" font-size="16px" font-weight="bold" fill="#974f0c">DISPUTA 🥊</tspan>
+    <tspan x="1450" dy="26" font-weight="bold">PK</tspan><tspan dy="0"> NR_DISPUTA INTEGER</tspan>
+    <tspan x="1450" dy="20" fill="#172b4d">NR_NSU CHAR(12)</tspan>
+    <tspan x="1450" dy="20" fill="#172b4d">TP_DISPUTA CHAR(4)</tspan>
+    <tspan x="1450" dy="20" fill="#172b4d">VL_DISPUTA DECIMAL(15,2)</tspan>
+    <tspan x="1450" dy="20" fill="#172b4d">DT_ABERTURA CHAR(8)</tspan>
+    <tspan x="1450" dy="20" fill="#172b4d">CD_STATUS AB/EN/GA/PE</tspan>
+  </text>
+
+  <!-- ══════════════════════════════════════════════════════════
+       BLOCO 5 — PARÂMETROS (roxo)
+  ══════════════════════════════════════════════════════════ -->
+  <rect id="sec-params" x="2240" y="120" width="920" height="620" fill="#f3f0ff" data-type="section" data-title="BLOCO 5 — PARÂMETROS" belongs-to="background" />
+
+  <!-- PARAMETRO_ROTINA -->
+  <rect id="card-parm-rot" x="2260" y="180" width="400" height="280" fill="#ffffff" data-type="card" belongs-to="sec-params" />
+  <text id="card-parm-rot-text" belongs-to="card-parm-rot" x="2280" y="208" font-size="14px" fill="#172b4d">
+    <tspan x="2280" dy="0" font-size="16px" font-weight="bold" fill="#5e4db2">PARAMETRO_ROTINA ⚙️</tspan>
+    <tspan x="2280" dy="26" font-weight="bold">PK</tspan><tspan dy="0"> CD_EMPRESA (1:1)</tspan>
+    <tspan x="2280" dy="20" fill="#ae2a19" font-weight="bold">FK</tspan><tspan dy="0"> CD_EMPRESA → EMPRESA</tspan>
+    <tspan x="2280" dy="20" fill="#172b4d">FL_APENAS_DIAS_UTEIS S/N</tspan>
+    <tspan x="2280" dy="20" fill="#172b4d">NR_DIAS_ACEITACAO_AUTO (15)</tspan>
+    <tspan x="2280" dy="20" fill="#172b4d">NR_DIAS_RECUSA_LEGAL (15)</tspan>
+    <tspan x="2280" dy="20" fill="#172b4d">NR_DIAS_RECUSA_AUTO (13)</tspan>
+    <tspan x="2280" dy="20" fill="#172b4d">TP_PERIODO_XML Diário</tspan>
+  </text>
+
+  <!-- PARAMETRO_INTERFACE -->
+  <rect id="card-parm-int" x="2690" y="180" width="440" height="300" fill="#ffffff" data-type="card" belongs-to="sec-params" />
+  <text id="card-parm-int-text" belongs-to="card-parm-int" x="2710" y="208" font-size="14px" fill="#172b4d">
+    <tspan x="2710" dy="0" font-size="16px" font-weight="bold" fill="#5e4db2">PARAMETRO_INTERFACE 🔌</tspan>
+    <tspan x="2710" dy="26" font-weight="bold">PK</tspan><tspan dy="0"> CD_PARAMETRO (SERIAL)</tspan>
+    <tspan x="2710" dy="20" fill="#ae2a19" font-weight="bold">FK</tspan><tspan dy="0"> CD_EMPRESA → EMPRESA</tspan>
+    <tspan x="2710" dy="20" fill="#172b4d">CD_CODIGO CHAR(40) UK</tspan>
+    <tspan x="2710" dy="20" fill="#172b4d">VL_VALOR VARCHAR(300)</tspan>
+    <tspan x="2710" dy="20" fill="#172b4d">TP_PARAMETRO STR/NUM/FLG/PTH</tspan>
+    <tspan x="2710" dy="20" fill="#216e4e">14 params seed: paths,</tspan>
+    <tspan x="2710" dy="20" fill="#216e4e">emails, interfaces SUSEP</tspan>
+  </text>
+
+  <!-- ══════════════════════════════════════════════════════════
+       BLOCO 6 — ECM (teal)
+  ══════════════════════════════════════════════════════════ -->
+  <rect id="sec-ecm" x="2240" y="780" width="920" height="500" fill="#e3fafc" data-type="section" data-title="BLOCO 6 — ECM (Documentos)" belongs-to="background" />
+
+  <!-- GRUPO_DOC_ECM -->
+  <rect id="card-grp-ecm" x="2260" y="840" width="400" height="220" fill="#ffffff" data-type="card" belongs-to="sec-ecm" />
+  <text id="card-grp-ecm-text" belongs-to="card-grp-ecm" x="2280" y="868" font-size="14px" fill="#172b4d">
+    <tspan x="2280" dy="0" font-size="16px" font-weight="bold" fill="#206b74">GRUPO_DOC_ECM 📁</tspan>
+    <tspan x="2280" dy="26" font-weight="bold">PK</tspan><tspan dy="0"> CD_GRUPO_ECM (SERIAL)</tspan>
+    <tspan x="2280" dy="20" fill="#172b4d">NM_GRUPO VARCHAR(40)</tspan>
+    <tspan x="2280" dy="20" fill="#172b4d">NM_TIPO VARCHAR(40)</tspan>
+    <tspan x="2280" dy="20" fill="#172b4d">FL_ATIVO CHAR(1)</tspan>
+    <tspan x="2280" dy="20" fill="#216e4e">4 grupos seed: OAM Kit</tspan>
+    <tspan x="2280" dy="20" fill="#216e4e">Sinistro, Emissão, Cad…</tspan>
+  </text>
+
+  <!-- DOC_ECM -->
+  <rect id="card-doc-ecm" x="2690" y="840" width="440" height="280" fill="#ffffff" data-type="card" belongs-to="sec-ecm" />
+  <text id="card-doc-ecm-text" belongs-to="card-doc-ecm" x="2710" y="868" font-size="14px" fill="#172b4d">
+    <tspan x="2710" dy="0" font-size="16px" font-weight="bold" fill="#206b74">DOC_ECM 📎</tspan>
+    <tspan x="2710" dy="26" font-weight="bold">PK</tspan><tspan dy="0"> CD_DOC_ECM (SERIAL)</tspan>
+    <tspan x="2710" dy="20" fill="#ae2a19" font-weight="bold">FK</tspan><tspan dy="0"> CD_GRUPO_ECM → GRUPO_DOC_ECM</tspan>
+    <tspan x="2710" dy="20" fill="#ae2a19" font-weight="bold">FK</tspan><tspan dy="0"> CD_EMPRESA → EMPRESA</tspan>
+    <tspan x="2710" dy="20" fill="#172b4d">NR_APOLICE CHAR(14) (opt)</tspan>
+    <tspan x="2710" dy="20" fill="#172b4d">NR_SINISTRO CHAR(14) (opt)</tspan>
+    <tspan x="2710" dy="20" fill="#172b4d">NM_ARQUIVO VARCHAR(200)</tspan>
+    <tspan x="2710" dy="20" fill="#172b4d">DT_GRAVACAO · HR_GRAVACAO</tspan>
+  </text>
+
+  <!-- ══════════════════════════════════════════════════════════
+       BLOCO 7 — CONTROLE OPERACIONAL (cinza-verde)
+  ══════════════════════════════════════════════════════════ -->
+  <rect id="sec-controle" x="2240" y="1320" width="920" height="500" fill="#efffd6" data-type="section" data-title="BLOCO 7 — CONTROLE OPERACIONAL" belongs-to="background" />
+
+  <!-- CONTROLE_IMPRESSAO -->
+  <rect id="card-ctrl" x="2260" y="1380" width="400" height="240" fill="#ffffff" data-type="card" belongs-to="sec-controle" />
+  <text id="card-ctrl-text" belongs-to="card-ctrl" x="2280" y="1408" font-size="14px" fill="#172b4d">
+    <tspan x="2280" dy="0" font-size="16px" font-weight="bold" fill="#4c6b1f">CONTROLE_IMPRESSAO 🖨️</tspan>
+    <tspan x="2280" dy="26" font-weight="bold">PK</tspan><tspan dy="0"> CD_CONTROLE (SERIAL)</tspan>
+    <tspan x="2280" dy="20" fill="#ae2a19" font-weight="bold">FK</tspan><tspan dy="0"> CD_EMPRESA → EMPRESA</tspan>
+    <tspan x="2280" dy="20" fill="#172b4d">NM_MODULO Emissão/Fech.Diário</tspan>
+    <tspan x="2280" dy="20" fill="#172b4d">DT_MOVIMENTO_CONTABIL</tspan>
+    <tspan x="2280" dy="20" fill="#172b4d">NR_PENDENTES · NR_GERADOS</tspan>
+    <tspan x="2280" dy="20" fill="#172b4d">NR_NAO_GERADOS</tspan>
+  </text>
+
+  <!-- PERMISSAO_FECHAMENTO -->
+  <rect id="card-perm" x="2690" y="1380" width="440" height="220" fill="#ffffff" data-type="card" belongs-to="sec-controle" />
+  <text id="card-perm-text" belongs-to="card-perm" x="2710" y="1408" font-size="14px" fill="#172b4d">
+    <tspan x="2710" dy="0" font-size="16px" font-weight="bold" fill="#4c6b1f">PERMISSAO_FECHAMENTO 🔒</tspan>
+    <tspan x="2710" dy="26" font-weight="bold">PK</tspan><tspan dy="0"> (CD_EMPRESA, CD_GRUPO)</tspan>
+    <tspan x="2710" dy="20" fill="#ae2a19" font-weight="bold">FK</tspan><tspan dy="0"> CD_EMPRESA → EMPRESA</tspan>
+    <tspan x="2710" dy="20" fill="#ae2a19" font-weight="bold">FK</tspan><tspan dy="0"> CD_GRUPO → GRUPO_USUARIO</tspan>
+    <tspan x="2710" dy="20" fill="#172b4d">FL_SELECIONADO CHAR(1)</tspan>
+    <tspan x="2710" dy="20" fill="#172b4d">TS_ALTERACAO TIMESTAMP</tspan>
+  </text>
+
+  <!-- ══════════════════════════════════════════════════════════
+       BLOCO 8 — AUDITORIA (vermelho leve)
+  ══════════════════════════════════════════════════════════ -->
+  <rect id="sec-audit" x="2240" y="1860" width="920" height="340" fill="#ffedeb" data-type="section" data-title="BLOCO 8 — AUDITORIA" belongs-to="background" />
+
+  <rect id="card-audit" x="2260" y="1920" width="860" height="240" fill="#ffffff" data-type="card" belongs-to="sec-audit" />
+  <text id="card-audit-text" belongs-to="card-audit" x="2280" y="1948" font-size="14px" fill="#172b4d">
+    <tspan x="2280" dy="0" font-size="16px" font-weight="bold" fill="#ae2a19">AUDITORIA_ACAO 📋</tspan>
+    <tspan x="2280" dy="26" font-weight="bold">PK</tspan><tspan dy="0"> CD_AUDITORIA (BIGSERIAL)</tspan>
+    <tspan x="2280" dy="20" fill="#172b4d">CD_EMPRESA INTEGER (opt)</tspan>
+    <tspan x="2280" dy="20" fill="#172b4d">ID_USUARIO CHAR(8)</tspan>
+    <tspan x="2280" dy="20" fill="#172b4d">DT_HORA_ACAO TIMESTAMP</tspan>
+    <tspan x="2280" dy="20" fill="#172b4d">NM_MODULO: Emissão/Sinistro/Aceitação/Cadastro/Cobrança/Rotina/ECM</tspan>
+    <tspan x="2280" dy="20" fill="#172b4d">NM_ACAO VARCHAR(40) · NR_REFERENCIA VARCHAR(20)</tspan>
+    <tspan x="2280" dy="20" fill="#172b4d">DS_DETALHE VARCHAR(200) · CD_IP CHAR(15)</tspan>
+  </text>
+
+  <!-- ══════════════════════════════════════════════════════════
+       CONNECTORS — Relacionamentos FK principais
+  ══════════════════════════════════════════════════════════ -->
+
+  <!-- FILIAL → EMPRESA -->
+  <line id="conn-fil-emp" data-type="connector" begins-at="card-filial" ends-at="card-empresa" start-anchor="left" end-anchor="right" stroke="#ae2a19" stroke-width="2" stroke-dasharray="6,3" belongs-to="background" />
+  <text id="lbl-fil-emp" data-type="pathLabel" belongs-to="conn-fil-emp" x="430" y="258" font-size="11px" fill="#ae2a19"><tspan x="430" dy="0">N:1</tspan></text>
+
+  <!-- CONGENERE → EMPRESA -->
+  <line id="conn-con-emp" data-type="connector" begins-at="card-congenere" ends-at="card-empresa" start-anchor="left" end-anchor="right" stroke="#ae2a19" stroke-width="2" stroke-dasharray="6,3" belongs-to="background" />
+  <text id="lbl-con-emp" data-type="pathLabel" belongs-to="conn-con-emp" x="430" y="520" font-size="11px" fill="#ae2a19"><tspan x="430" dy="0">N:1</tspan></text>
+
+  <!-- SEGURADO → EMPRESA -->
+  <line id="conn-seg-emp" data-type="connector" begins-at="card-segurado" ends-at="card-empresa" start-anchor="top" end-anchor="bottom" stroke="#ae2a19" stroke-width="2" stroke-dasharray="6,3" belongs-to="background" />
+  <text id="lbl-seg-emp" data-type="pathLabel" belongs-to="conn-seg-emp" x="200" y="500" font-size="11px" fill="#ae2a19"><tspan x="200" dy="0">N:1</tspan></text>
+
+  <!-- PROPOSTA → EMPRESA -->
+  <line id="conn-prop-emp" data-type="connector" begins-at="card-proposta" ends-at="card-empresa" start-anchor="left" end-anchor="right" stroke="#ae2a19" stroke-width="2" stroke-dasharray="6,3" belongs-to="background" />
+  <text id="lbl-prop-emp" data-type="pathLabel" belongs-to="conn-prop-emp" x="990" y="290" font-size="11px" fill="#ae2a19"><tspan x="990" dy="0">N:1</tspan></text>
+
+  <!-- PROPOSTA → SEGURADO -->
+  <line id="conn-prop-seg" data-type="connector" begins-at="card-proposta" ends-at="card-segurado" start-anchor="bottom" end-anchor="top" stroke="#ae2a19" stroke-width="2" stroke-dasharray="6,3" belongs-to="background" />
+  <text id="lbl-prop-seg" data-type="pathLabel" belongs-to="conn-prop-seg" x="1100" y="900" font-size="11px" fill="#ae2a19"><tspan x="1100" dy="0">N:1</tspan></text>
+
+  <!-- APOLICE → PROPOSTA -->
+  <line id="conn-apo-prop" data-type="connector" begins-at="card-apolice" ends-at="card-proposta" start-anchor="left" end-anchor="right" stroke="#216e4e" stroke-width="2" belongs-to="background" />
+  <text id="lbl-apo-prop" data-type="pathLabel" belongs-to="conn-apo-prop" x="1400" y="295" font-size="11px" fill="#216e4e"><tspan x="1400" dy="0">1:1</tspan></text>
+
+  <!-- COBERTURA → APOLICE -->
+  <line id="conn-cob-apo" data-type="connector" begins-at="card-cobertura" ends-at="card-apolice" start-anchor="top" end-anchor="bottom" stroke="#216e4e" stroke-width="2" belongs-to="background" />
+  <text id="lbl-cob-apo" data-type="pathLabel" belongs-to="conn-cob-apo" x="1300" y="540" font-size="11px" fill="#216e4e"><tspan x="1300" dy="0">N:1</tspan></text>
+
+  <!-- SINISTRO → APOLICE -->
+  <line id="conn-sin-apo" data-type="connector" begins-at="card-sinistro" ends-at="card-apolice" start-anchor="right" end-anchor="left" stroke="#7f5f01" stroke-width="2" stroke-dasharray="6,3" belongs-to="background" />
+  <text id="lbl-sin-apo" data-type="pathLabel" belongs-to="conn-sin-apo" x="980" y="1300" font-size="11px" fill="#7f5f01"><tspan x="980" dy="0">N:1</tspan></text>
+
+  <!-- KIT_SINISTRO → SINISTRO -->
+  <line id="conn-kit-sin" data-type="connector" begins-at="card-kit" ends-at="card-sinistro" start-anchor="left" end-anchor="right" stroke="#7f5f01" stroke-width="2" belongs-to="background" />
+  <text id="lbl-kit-sin" data-type="pathLabel" belongs-to="conn-kit-sin" x="490" y="1310" font-size="11px" fill="#7f5f01"><tspan x="490" dy="0">N:1</tspan></text>
+
+  <!-- FATURA → EMPRESA -->
+  <line id="conn-fat-emp" data-type="connector" begins-at="card-fatura" ends-at="card-empresa" start-anchor="left" end-anchor="bottom" stroke="#974f0c" stroke-width="2" stroke-dasharray="6,3" belongs-to="background" />
+  <text id="lbl-fat-emp" data-type="pathLabel" belongs-to="conn-fat-emp" x="990" y="1350" font-size="11px" fill="#974f0c"><tspan x="990" dy="0">N:1</tspan></text>
+
+  <!-- PAGAMENTO → FATURA -->
+  <line id="conn-pag-fat" data-type="connector" begins-at="card-pagamento" ends-at="card-fatura" start-anchor="left" end-anchor="right" stroke="#974f0c" stroke-width="2" belongs-to="background" />
+  <text id="lbl-pag-fat" data-type="pathLabel" belongs-to="conn-pag-fat" x="1400" y="1360" font-size="11px" fill="#974f0c"><tspan x="1400" dy="0">N:1</tspan></text>
+
+  <!-- CONCILIACAO → FATURA -->
+  <line id="conn-con-fat" data-type="connector" begins-at="card-concil" ends-at="card-fatura" start-anchor="top" end-anchor="bottom" stroke="#974f0c" stroke-width="2" belongs-to="background" />
+  <text id="lbl-con-fat" data-type="pathLabel" belongs-to="conn-con-fat" x="1140" y="1570" font-size="11px" fill="#974f0c"><tspan x="1140" dy="0">N:1</tspan></text>
+
+  <!-- PERMISSAO_FECHAMENTO → GRUPO_USUARIO -->
+  <line id="conn-perm-grp" data-type="connector" begins-at="card-perm" ends-at="card-grupo" start-anchor="left" end-anchor="right" stroke="#4c6b1f" stroke-width="2" stroke-dasharray="6,3" belongs-to="background" />
+  <text id="lbl-perm-grp" data-type="pathLabel" belongs-to="conn-perm-grp" x="800" y="1450" font-size="11px" fill="#4c6b1f"><tspan x="800" dy="0">N:1</tspan></text>
+
+  <!-- ══════════════════════════════════════════════════════════
+       LEGENDA
+  ══════════════════════════════════════════════════════════ -->
+  <rect id="sec-legend" x="40" y="1800" width="920" height="360" fill="#f1f2f4" data-type="section" data-title="LEGENDA" belongs-to="background" />
+
+  <rect id="leg-pk" x="60" y="1870" width="200" height="50" fill="#cce0ff" data-type="sticky" belongs-to="sec-legend" />
+  <text id="leg-pk-t" belongs-to="leg-pk" x="76" y="1895" font-size="13px" fill="#0055cc"><tspan x="76" dy="0" font-weight="bold">PK</tspan><tspan dy="0"> Chave primária</tspan></text>
+
+  <rect id="leg-fk" x="280" y="1870" width="200" height="50" fill="#ffd2cc" data-type="sticky" belongs-to="sec-legend" />
+  <text id="leg-fk-t" belongs-to="leg-fk" x="296" y="1895" font-size="13px" fill="#ae2a19"><tspan x="296" dy="0" font-weight="bold">FK</tspan><tspan dy="0"> Chave estrangeira</tspan></text>
+
+  <rect id="leg-uk" x="500" y="1870" width="200" height="50" fill="#dfd8fd" data-type="sticky" belongs-to="sec-legend" />
+  <text id="leg-uk-t" belongs-to="leg-uk" x="516" y="1895" font-size="13px" fill="#5e4db2"><tspan x="516" dy="0" font-weight="bold">UK</tspan><tspan dy="0"> Unique constraint</tspan></text>
+
+  <rect id="leg-serial" x="720" y="1870" width="200" height="50" fill="#c7f8e3" data-type="sticky" belongs-to="sec-legend" />
+  <text id="leg-serial-t" belongs-to="leg-serial" x="736" y="1895" font-size="13px" fill="#216e4e"><tspan x="736" dy="0" font-weight="bold">SERIAL</tspan><tspan dy="0"> Auto-increment</tspan></text>
+
+  <rect id="leg-bloco1" x="60" y="1940" width="130" height="40" fill="#e9f2ff" data-type="sticky" belongs-to="sec-legend" />
+  <text id="leg-bloco1-t" belongs-to="leg-bloco1" x="75" y="1964" font-size="12px" fill="#0055cc"><tspan x="75" dy="0">Bloco 1: Cadastros</tspan></text>
+
+  <rect id="leg-bloco2" x="210" y="1940" width="130" height="40" fill="#dffcf0" data-type="sticky" belongs-to="sec-legend" />
+  <text id="leg-bloco2-t" belongs-to="leg-bloco2" x="225" y="1964" font-size="12px" fill="#216e4e"><tspan x="225" dy="0">Bloco 2: Emissão</tspan></text>
+
+  <rect id="leg-bloco3" x="360" y="1940" width="130" height="40" fill="#fff7d6" data-type="sticky" belongs-to="sec-legend" />
+  <text id="leg-bloco3-t" belongs-to="leg-bloco3" x="375" y="1964" font-size="12px" fill="#7f5f01"><tspan x="375" dy="0">Bloco 3: Sinistro</tspan></text>
+
+  <rect id="leg-bloco4" x="510" y="1940" width="130" height="40" fill="#fff5eb" data-type="sticky" belongs-to="sec-legend" />
+  <text id="leg-bloco4-t" belongs-to="leg-bloco4" x="525" y="1964" font-size="12px" fill="#974f0c"><tspan x="525" dy="0">Bloco 4: Financeiro</tspan></text>
+
+  <rect id="leg-bloco5" x="660" y="1940" width="130" height="40" fill="#f3f0ff" data-type="sticky" belongs-to="sec-legend" />
+  <text id="leg-bloco5-t" belongs-to="leg-bloco5" x="675" y="1964" font-size="12px" fill="#5e4db2"><tspan x="675" dy="0">Bloco 5: Parâmetros</tspan></text>
+
+  <rect id="leg-bloco6" x="60" y="2000" width="130" height="40" fill="#e3fafc" data-type="sticky" belongs-to="sec-legend" />
+  <text id="leg-bloco6-t" belongs-to="leg-bloco6" x="75" y="2024" font-size="12px" fill="#206b74"><tspan x="75" dy="0">Bloco 6: ECM</tspan></text>
+
+  <rect id="leg-bloco7" x="210" y="2000" width="130" height="40" fill="#efffd6" data-type="sticky" belongs-to="sec-legend" />
+  <text id="leg-bloco7-t" belongs-to="leg-bloco7" x="225" y="2024" font-size="12px" fill="#4c6b1f"><tspan x="225" dy="0">Bloco 7: Controle</tspan></text>
+
+  <rect id="leg-bloco8" x="360" y="2000" width="130" height="40" fill="#ffedeb" data-type="sticky" belongs-to="sec-legend" />
+  <text id="leg-bloco8-t" belongs-to="leg-bloco8" x="375" y="2024" font-size="12px" fill="#ae2a19"><tspan x="375" dy="0">Bloco 8: Auditoria</tspan></text>
+
+  <text id="leg-note" belongs-to="sec-legend" x="60" y="2090" font-size="12px" fill="#5e4db2">
+    <tspan x="60" dy="0">📌 Tipos CHAR(n) preservam largura fixa compatível com copybooks COBOL (CPYAPOL, CPYFATU, CPYPAGT, CPYCONC…)</tspan>
+    <tspan x="60" dy="20">📌 Datas em CHAR(8) = AAAAMMDD · Competência em CHAR(6) = AAAAMM · PCI-DSS: nunca armazenar PAN completo</tspan>
+  </text>
+
+</svg>

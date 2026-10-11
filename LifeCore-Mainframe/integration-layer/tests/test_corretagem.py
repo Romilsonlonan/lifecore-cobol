@@ -2,14 +2,16 @@
 Testes do módulo de Corretagem
 Cobre: corretoras, corretores, vínculos e consulta por empresa.
 """
-import os
-os.environ["BATCH_CONNECTOR"]    = "stub"
-os.environ["OTEL_ENABLED"]       = "false"
-os.environ["RAG_CHROMA_PATH"]    = "/tmp/lc_chroma_corretagem_test"
-os.environ["AUTH_SECRET_KEY"]    = "test-secret-key-32chars"
 
-from fastapi.testclient import TestClient
+import os
+
+os.environ["BATCH_CONNECTOR"] = "stub"
+os.environ["OTEL_ENABLED"] = "false"
+os.environ["RAG_CHROMA_PATH"] = "/tmp/lc_chroma_corretagem_test"
+os.environ["AUTH_SECRET_KEY"] = "test-secret-key-32chars"
+
 from app.main import app
+from fastapi.testclient import TestClient
 
 client = TestClient(app)
 
@@ -17,6 +19,7 @@ client = TestClient(app)
 # ═══════════════════════════════════════════════════════════════════════════════
 # CORRETORAS
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def test_listar_corretoras():
     r = client.get("/api/corretagem/corretoras")
@@ -43,15 +46,18 @@ def test_detalhar_corretora_inexistente():
 
 
 def test_criar_corretora():
-    r = client.post("/api/corretagem/corretoras", json={
-        "nm_razao_social": "Nova Corretora S.A.",
-        "cd_cnpj":         "99887766000100",
-        "nr_susep":        "K9999",
-        "cd_email":        "nova@corretora.com.br",
-        "nr_celular":      "11999998888",
-        "nm_cidade":       "Campinas",
-        "sg_estado":       "SP",
-    })
+    r = client.post(
+        "/api/corretagem/corretoras",
+        json={
+            "nm_razao_social": "Nova Corretora S.A.",
+            "cd_cnpj": "99887766000100",
+            "nr_susep": "K9999",
+            "cd_email": "nova@corretora.com.br",
+            "nr_celular": "11999998888",
+            "nm_cidade": "Campinas",
+            "sg_estado": "SP",
+        },
+    )
     assert r.status_code == 201
     d = r.json()
     assert d["cd_status"] == "AT"
@@ -59,39 +65,51 @@ def test_criar_corretora():
 
 
 def test_criar_corretora_cnpj_duplicado():
-    r = client.post("/api/corretagem/corretoras", json={
-        "nm_razao_social": "Duplicada",
-        "cd_cnpj":         "12345678000199",   # seed
-        "nr_susep":        "K0000",
-    })
+    r = client.post(
+        "/api/corretagem/corretoras",
+        json={
+            "nm_razao_social": "Duplicada",
+            "cd_cnpj": "12345678000199",  # seed
+            "nr_susep": "K0000",
+        },
+    )
     assert r.status_code == 409
 
 
 def test_criar_corretora_susep_duplicado():
-    r = client.post("/api/corretagem/corretoras", json={
-        "nm_razao_social": "Duplicada SUSEP",
-        "cd_cnpj":         "11112222000100",
-        "nr_susep":        "J1234",   # seed
-    })
+    r = client.post(
+        "/api/corretagem/corretoras",
+        json={
+            "nm_razao_social": "Duplicada SUSEP",
+            "cd_cnpj": "11112222000100",
+            "nr_susep": "J1234",  # seed
+        },
+    )
     assert r.status_code == 409
 
 
 def test_atualizar_corretora():
-    r = client.put("/api/corretagem/corretoras/1", json={
-        "nm_razao_social": "Corretora Exemplo Atualizada",
-        "cd_cnpj":         "12345678000199",
-        "nr_susep":        "J1234",
-        "cd_email":        "novo@corretora.com.br",
-    })
+    r = client.put(
+        "/api/corretagem/corretoras/1",
+        json={
+            "nm_razao_social": "Corretora Exemplo Atualizada",
+            "cd_cnpj": "12345678000199",
+            "nr_susep": "J1234",
+            "cd_email": "novo@corretora.com.br",
+        },
+    )
     assert r.status_code == 200
     assert r.json()["cd_email"] == "novo@corretora.com.br"
     # Restaura
-    client.put("/api/corretagem/corretoras/1", json={
-        "nm_razao_social": "Corretora Exemplo Ltda",
-        "cd_cnpj":         "12345678000199",
-        "nr_susep":        "J1234",
-        "cd_email":        "contato@corretora.com.br",
-    })
+    client.put(
+        "/api/corretagem/corretoras/1",
+        json={
+            "nm_razao_social": "Corretora Exemplo Ltda",
+            "cd_cnpj": "12345678000199",
+            "nr_susep": "J1234",
+            "cd_email": "contato@corretora.com.br",
+        },
+    )
 
 
 def test_inativar_corretora():
@@ -110,6 +128,7 @@ def test_status_invalido():
 # ═══════════════════════════════════════════════════════════════════════════════
 # CORRETORES
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def test_listar_corretores():
     r = client.get("/api/corretagem/corretores")
@@ -137,15 +156,18 @@ def test_detalhar_corretor():
 
 
 def test_criar_corretor():
-    r = client.post("/api/corretagem/corretores", json={
-        "cd_corretora":       1,
-        "nm_nome":            "Maria Corretora Lima",
-        "nr_cpf":             "11122233344",
-        "nr_susep":           "K54321",
-        "cd_email_principal": "maria@corretora.com.br",
-        "nr_celular":         "11955554444",
-        "ds_especialidade":   "GLB, Prestamista",
-    })
+    r = client.post(
+        "/api/corretagem/corretores",
+        json={
+            "cd_corretora": 1,
+            "nm_nome": "Maria Corretora Lima",
+            "nr_cpf": "11122233344",
+            "nr_susep": "K54321",
+            "cd_email_principal": "maria@corretora.com.br",
+            "nr_celular": "11955554444",
+            "ds_especialidade": "GLB, Prestamista",
+        },
+    )
     assert r.status_code == 201
     d = r.json()
     assert d["nm_corretora"] == "Corretora Exemplo Ltda"
@@ -153,24 +175,30 @@ def test_criar_corretor():
 
 
 def test_criar_corretor_cpf_duplicado():
-    r = client.post("/api/corretagem/corretores", json={
-        "cd_corretora":       1,
-        "nm_nome":            "Duplicado",
-        "nr_cpf":             "98765432100",    # seed
-        "nr_susep":           "Z99999",
-        "cd_email_principal": "dup@corretora.com.br",
-    })
+    r = client.post(
+        "/api/corretagem/corretores",
+        json={
+            "cd_corretora": 1,
+            "nm_nome": "Duplicado",
+            "nr_cpf": "98765432100",  # seed
+            "nr_susep": "Z99999",
+            "cd_email_principal": "dup@corretora.com.br",
+        },
+    )
     assert r.status_code == 409
 
 
 def test_criar_corretor_corretora_inexistente():
-    r = client.post("/api/corretagem/corretores", json={
-        "cd_corretora":       9999,
-        "nm_nome":            "Orphan",
-        "nr_cpf":             "55544433322",
-        "nr_susep":           "X12345",
-        "cd_email_principal": "orphan@test.com",
-    })
+    r = client.post(
+        "/api/corretagem/corretores",
+        json={
+            "cd_corretora": 9999,
+            "nm_nome": "Orphan",
+            "nr_cpf": "55544433322",
+            "nr_susep": "X12345",
+            "cd_email_principal": "orphan@test.com",
+        },
+    )
     assert r.status_code == 404
 
 
@@ -184,6 +212,7 @@ def test_inativar_corretor():
 # ═══════════════════════════════════════════════════════════════════════════════
 # VÍNCULOS empresa ↔ corretora
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def test_empresa_sem_corretora():
     """Empresa recém-criada não tem corretora — fl_tem_corretora=False."""
@@ -202,18 +231,21 @@ def test_empresa_inexistente():
 
 def test_criar_vinculo_sem_corretor():
     """Empresa vinculada à corretora, mas sem corretor específico."""
-    r = client.post("/api/corretagem/vinculos", json={
-        "cd_empresa":   1,
-        "cd_corretora": 1,
-        "dt_inicio":    "20260101",
-        "pct_comissao": 5.0,
-    })
+    r = client.post(
+        "/api/corretagem/vinculos",
+        json={
+            "cd_empresa": 1,
+            "cd_corretora": 1,
+            "dt_inicio": "20260101",
+            "pct_comissao": 5.0,
+        },
+    )
     assert r.status_code == 201
     d = r.json()
-    assert d["cd_empresa"]   == 1
+    assert d["cd_empresa"] == 1
     assert d["cd_corretora"] == 1
     assert d["nm_corretora"] == "Corretora Exemplo Ltda"
-    assert d["nm_corretor"]  is None   # sem corretor específico
+    assert d["nm_corretor"] is None  # sem corretor específico
 
 
 def test_empresa_com_corretora_apos_vinculo():
@@ -223,18 +255,21 @@ def test_empresa_com_corretora_apos_vinculo():
     assert d["fl_tem_corretora"] is True
     assert d["nm_corretora"] == "Corretora Exemplo Ltda"
     assert d["pct_comissao"] == 5.0
-    assert d["nm_corretor"]  is None   # sem corretor ainda
+    assert d["nm_corretor"] is None  # sem corretor ainda
 
 
 def test_atualizar_vinculo_com_corretor():
     """Adiciona corretor específico ao vínculo criando um novo vínculo."""
-    r = client.post("/api/corretagem/vinculos", json={
-        "cd_empresa":   1,
-        "cd_corretora": 1,
-        "cd_corretor":  1,
-        "dt_inicio":    "20260201",
-        "pct_comissao": 5.0,
-    })
+    r = client.post(
+        "/api/corretagem/vinculos",
+        json={
+            "cd_empresa": 1,
+            "cd_corretora": 1,
+            "cd_corretor": 1,
+            "dt_inicio": "20260201",
+            "pct_comissao": 5.0,
+        },
+    )
     assert r.status_code == 201
     d = r.json()
     assert d["nm_corretor"] == "João Corretor Silva"
@@ -253,20 +288,26 @@ def test_empresa_com_corretor_vinculado():
 def test_corretor_de_outra_corretora_invalido():
     """Corretor deve pertencer à corretora informada no vínculo."""
     # Cria segunda corretora
-    r_c = client.post("/api/corretagem/corretoras", json={
-        "nm_razao_social": "Segunda Corretora",
-        "cd_cnpj":         "77665544000100",
-        "nr_susep":        "Z7766",
-    })
+    r_c = client.post(
+        "/api/corretagem/corretoras",
+        json={
+            "nm_razao_social": "Segunda Corretora",
+            "cd_cnpj": "77665544000100",
+            "nr_susep": "Z7766",
+        },
+    )
     cd_corretora2 = r_c.json()["cd_corretora"]
 
     # Tenta vincular corretor 1 (da corretora 1) com a corretora 2
-    r = client.post("/api/corretagem/vinculos", json={
-        "cd_empresa":   1,
-        "cd_corretora": cd_corretora2,
-        "cd_corretor":  1,   # pertence à corretora 1
-        "dt_inicio":    "20260301",
-    })
+    r = client.post(
+        "/api/corretagem/vinculos",
+        json={
+            "cd_empresa": 1,
+            "cd_corretora": cd_corretora2,
+            "cd_corretor": 1,  # pertence à corretora 1
+            "dt_inicio": "20260301",
+        },
+    )
     assert r.status_code == 409
 
 

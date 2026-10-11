@@ -26,24 +26,22 @@ Regras de negócio:
     NÃO gera cobrança retroativa (conforme regulação).
   • IPCA: capital e prêmio são corrigidos mensalmente pela taxa vigente.
 """
+
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, HTTPException, Path, status
 
-from app.api.emissao.proposta import _APOLICES
 from app.api.emissao.faturamento import _COBERTURAS, _FATURAS, _TAXAS_IPCA
+from app.api.emissao.proposta import _APOLICES
 from app.schemas.lifecore import (
     CoberturaSeguro,
     DetalheApoliceCompleto,
     RevalidacaoRequest,
     RevalidacaoResponse,
-    StatusCoberturaEnum,
     StatusApoliceEnum,
-    PeriodicidadeEnum,
-    FormaCobrancaEnum,
+    StatusCoberturaEnum,
     TaxaIPCAResponse,
 )
 
@@ -62,11 +60,11 @@ _CAPITAL_NOME = {
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _hoje() -> str:
-    return datetime.now(timezone.utc).strftime("%Y%m%d")
+    return datetime.now(UTC).strftime("%Y%m%d")
 
 
 def _get_apolice_or_404(nr_apolice: str) -> dict:
@@ -143,6 +141,7 @@ def _build_cobertura_schema(cob: dict) -> CoberturaSeguro:
 
 # ── CONSULTA DETALHADA ────────────────────────────────────────────────────────
 
+
 @router.get(
     "/{nr_apolice}/detalhes",
     response_model=DetalheApoliceCompleto,
@@ -153,17 +152,18 @@ def detalhe_completo(nr_apolice: str = Path(..., max_length=20)):
     apolice = _get_apolice_or_404(nr_apolice)
 
     coberturas_raw = [
-        c for k, c in _COBERTURAS.items()
-        if k.startswith(f"{nr_apolice}:")
+        c for k, c in _COBERTURAS.items() if k.startswith(f"{nr_apolice}:")
     ]
     coberturas_schema = [_build_cobertura_schema(c) for c in coberturas_raw]
 
     ativos = [
-        c for c in coberturas_raw
+        c
+        for c in coberturas_raw
         if c.get("cd_status_cobertura") == StatusCoberturaEnum.ATIVA
     ]
     sem_cob = [
-        c for c in coberturas_raw
+        c
+        for c in coberturas_raw
         if c.get("cd_status_cobertura") == StatusCoberturaEnum.SEM_COBERTURA
     ]
 
@@ -196,6 +196,7 @@ def detalhe_completo(nr_apolice: str = Path(..., max_length=20)):
     # Config faturamento (vem do store config_apolice se existir)
     try:
         from app.api.emissao.config_apolice import _CONFIGS_FATURAMENTO
+
         conf = _CONFIGS_FATURAMENTO.get(nr_apolice, {})
     except ImportError:
         conf = {}
@@ -234,6 +235,7 @@ def detalhe_completo(nr_apolice: str = Path(..., max_length=20)):
 
 # ── COBERTURAS ────────────────────────────────────────────────────────────────
 
+
 @router.get(
     "/{nr_apolice}/coberturas",
     response_model=list[CoberturaSeguro],
@@ -242,17 +244,13 @@ def detalhe_completo(nr_apolice: str = Path(..., max_length=20)):
 )
 def listar_coberturas(
     nr_apolice: str = Path(..., max_length=20),
-    cd_status: Optional[StatusCoberturaEnum] = None,
+    cd_status: StatusCoberturaEnum | None = None,
 ):
     _get_apolice_or_404(nr_apolice)
-    coberturas = [
-        c for k, c in _COBERTURAS.items()
-        if k.startswith(f"{nr_apolice}:")
-    ]
+    coberturas = [c for k, c in _COBERTURAS.items() if k.startswith(f"{nr_apolice}:")]
     if cd_status:
         coberturas = [
-            c for c in coberturas
-            if c.get("cd_status_cobertura") == cd_status
+            c for c in coberturas if c.get("cd_status_cobertura") == cd_status
         ]
     return [_build_cobertura_schema(c) for c in coberturas]
 
@@ -273,6 +271,7 @@ def detalhar_cobertura(
 
 
 # ── INADIMPLÊNCIA ─────────────────────────────────────────────────────────────
+
 
 @router.post(
     "/{nr_apolice}/coberturas/{cpf}/registrar-inadimplencia",
@@ -322,6 +321,7 @@ def registrar_inadimplencia(
 
 
 # ── REVALIDAÇÃO ───────────────────────────────────────────────────────────────
+
 
 @router.post(
     "/{nr_apolice}/coberturas/{cpf}/revalidar",
@@ -398,7 +398,7 @@ def revalidar_cobertura(
         cd_status_anterior=status_anterior,
         cd_status_novo=StatusCoberturaEnum.ATIVA,
         nr_meses_inadimplente=nr_meses,
-        fl_cobertura_retroativa=False,   # NUNCA retroativo
+        fl_cobertura_retroativa=False,  # NUNCA retroativo
         vl_premio_devido=vl_devido,
         ds_mensagem=mensagem,
         ts_revalidacao=_now(),

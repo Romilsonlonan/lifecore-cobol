@@ -6,10 +6,11 @@ GET    /api/cosseguro/participacoes/{cd_cosseguro}
 PUT    /api/cosseguro/participacoes/{cd_cosseguro}/confirmar
 PUT    /api/cosseguro/participacoes/{cd_cosseguro}/cancelar
 """
+
 from datetime import datetime
+
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field, model_validator
-from typing import Optional
 
 router = APIRouter()
 
@@ -18,14 +19,14 @@ _NEXT_ID = 1
 
 
 class ParticipacaoCreate(BaseModel):
-    nr_apolice:         str = Field(..., max_length=20)
+    nr_apolice: str = Field(..., max_length=20)
     cd_congenere_lider: int = Field(..., description="Seguradora líder")
     cd_congenere_segui: int = Field(..., description="Seguradora seguidora")
-    pct_participacao:   float = Field(..., gt=0, le=100, description="% da seguidora")
-    vl_capital_cedido:  float = Field(..., gt=0)
-    vl_premio_cedido:   float = Field(..., gt=0)
-    dt_inicio_vigencia: str   = Field(..., pattern=r"^\d{8}$")
-    dt_fim_vigencia:    str   = Field(..., pattern=r"^\d{8}$")
+    pct_participacao: float = Field(..., gt=0, le=100, description="% da seguidora")
+    vl_capital_cedido: float = Field(..., gt=0)
+    vl_premio_cedido: float = Field(..., gt=0)
+    dt_inicio_vigencia: str = Field(..., pattern=r"^\d{8}$")
+    dt_fim_vigencia: str = Field(..., pattern=r"^\d{8}$")
 
     @model_validator(mode="after")
     def vigencia_valida(self):
@@ -35,18 +36,18 @@ class ParticipacaoCreate(BaseModel):
 
 
 class ParticipacaoResponse(ParticipacaoCreate):
-    cd_cosseguro:   int
-    cd_status:      str   # PENDENTE / CONFIRMADO / CANCELADO
-    dt_inclusao:    str
-    ts_inclusao:    datetime
+    cd_cosseguro: int
+    cd_status: str  # PENDENTE / CONFIRMADO / CANCELADO
+    dt_inclusao: str
+    ts_inclusao: datetime
 
     class Config:
         from_attributes = True
 
 
 class ConfirmacaoRequest(BaseModel):
-    id_usuario:     str = Field(..., max_length=8)
-    ds_observacao:  Optional[str] = None
+    id_usuario: str = Field(..., max_length=8)
+    ds_observacao: str | None = None
 
 
 @router.get(
@@ -85,9 +86,9 @@ def criar_participacao(payload: ParticipacaoCreate):
     participacao = {
         "cd_cosseguro": _NEXT_ID,
         **payload.model_dump(),
-        "cd_status":    "PENDENTE",
-        "dt_inclusao":  datetime.today().strftime("%Y%m%d"),
-        "ts_inclusao":  datetime.utcnow(),
+        "cd_status": "PENDENTE",
+        "dt_inclusao": datetime.today().strftime("%Y%m%d"),
+        "ts_inclusao": datetime.utcnow(),
     }
     _DB[_NEXT_ID] = participacao
     _NEXT_ID += 1
@@ -116,8 +117,10 @@ def confirmar_participacao(cd_cosseguro: int, payload: ConfirmacaoRequest):
     if not p:
         raise HTTPException(404, detail=f"Cosseguro {cd_cosseguro} não encontrado.")
     if p["cd_status"] != "PENDENTE":
-        raise HTTPException(409, detail=f"Status {p['cd_status']} não permite confirmação.")
-    p["cd_status"]      = "CONFIRMADO"
+        raise HTTPException(
+            409, detail=f"Status {p['cd_status']} não permite confirmação."
+        )
+    p["cd_status"] = "CONFIRMADO"
     p["id_usuario_conf"] = payload.id_usuario
     p["dt_confirmacao"] = datetime.today().strftime("%Y%m%d")
     return p
@@ -134,7 +137,7 @@ def cancelar_participacao(cd_cosseguro: int, payload: ConfirmacaoRequest):
         raise HTTPException(404, detail=f"Cosseguro {cd_cosseguro} não encontrado.")
     if p["cd_status"] == "CANCELADO":
         raise HTTPException(409, detail="Participação já cancelada.")
-    p["cd_status"]      = "CANCELADO"
+    p["cd_status"] = "CANCELADO"
     p["id_usuario_canc"] = payload.id_usuario
-    p["ds_observacao"]  = payload.ds_observacao
+    p["ds_observacao"] = payload.ds_observacao
     return p

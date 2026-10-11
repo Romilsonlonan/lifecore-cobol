@@ -1,0 +1,51 @@
+<h2>Catálogo de ABENDs — z/OS LifeCore IQ</h2>
+<p>Use este catálogo como primeiro passo no diagnóstico de falhas em produção. Para cada abend: identifique o código, siga a ação imediata e abra issue <code>fix/sus/LCIQ-###</code>.</p>
+
+<h2>Tabela de ABENDs</h2>
+<table>
+<thead><tr><th>Código</th><th>Causa</th><th>Ação imediata</th><th>Programa mais afetado</th></tr></thead>
+<tbody>
+<tr><td><strong>S0C7</strong></td><td>Dado numérico inválido em campo COMP-3 (packed decimal corrompido)</td><td>Verificar arquivo de entrada; campo com lixo binário. Analisar DUMP e localizar campo COMP-3 afetado.</td><td>FATURA01, VGCCAP01, COMIS01</td></tr>
+<tr><td><strong>S0C4</strong></td><td>Violação de endereçamento / ponteiro inválido</td><td>Analisar DUMP; verificar subscrito de tabela fora dos limites.</td><td>Qualquer programa com tabelas</td></tr>
+<tr><td><strong>S322</strong></td><td>Estouro de tempo de CPU (loop infinito)</td><td>Cancelar job; revisar lógica de iteração — verificar condição de saída do loop.</td><td>CONCIL01, CLEAR01</td></tr>
+<tr><td><strong>S806</strong></td><td>Programa não encontrado na LOADLIB</td><td>Verificar STEPLIB/JOBLIB; recompilar se necessário. Confirmar JCL STEPLIB aponta para LIFECORE.LOAD.</td><td>Qualquer step JCL</td></tr>
+<tr><td><strong>SQLCODE -904</strong></td><td>Recurso DB2 indisponível</td><td>Aguardar liberação; verificar lock com DBA. Não reprocessar até confirmação do DBA.</td><td>Todos com EXEC SQL</td></tr>
+<tr><td><strong>SQLCODE -911</strong></td><td>Deadlock — transação cancelada pelo DB2</td><td>Retry automático implementado; se persistir, revisar ordem de acesso às tabelas.</td><td>FATURA01, CONCIL01</td></tr>
+<tr><td><strong>SQLCODE -913</strong></td><td>Timeout de lock</td><td>Aumentar intervalo de commit; fragmentar batch em lotes menores.</td><td>CONCIL01, SETTLE01</td></tr>
+</tbody>
+</table>
+
+<h2>Diagnóstico S0C7 — Passo a passo</h2>
+<ol>
+<li>Localizar o DUMP no SYSOUT do job</li>
+<li>Identificar o offset do PSW no DUMP</li>
+<li>Mapear o offset para o source COBOL via listagem de compilação</li>
+<li>Identificar o campo COMP-3 com dado inválido</li>
+<li>Verificar o arquivo de entrada — usar <code>TESTDATA/APOLICE_S0C7.DAT</code> como referência</li>
+<li>Corrigir o dado na origem ou adicionar validação antes da movimentação</li>
+</ol>
+
+<h2>Return codes padrão de JCL</h2>
+<table>
+<thead><tr><th>RC</th><th>Significado</th><th>Ação</th></tr></thead>
+<tbody>
+<tr><td>0</td><td>Sucesso total</td><td>Nenhuma</td></tr>
+<tr><td>4</td><td>Aviso — processado com advertências</td><td>Revisar log</td></tr>
+<tr><td>8</td><td>Erro recuperável — step seguinte executado com restrições</td><td>Analisar e avaliar reprocessamento</td></tr>
+<tr><td>12</td><td>Erro grave — steps dependentes cancelados</td><td>Corrigir e reprocessar</td></tr>
+<tr><td>16</td><td>Abend / falha crítica</td><td>Acionar DBA/time de sustentação imediatamente</td></tr>
+</tbody>
+</table>
+
+<h2>GDG — Generation Data Groups</h2>
+<table>
+<thead><tr><th>Dataset</th><th>Conteúdo</th></tr></thead>
+<tbody>
+<tr><td>LIFECORE.SRC.COBOL</td><td>Fontes COBOL</td></tr>
+<tr><td>LIFECORE.COPYLIB</td><td>Layouts (copybooks)</td></tr>
+<tr><td>LIFECORE.JCL</td><td>Jobs</td></tr>
+<tr><td>LIFECORE.PROCLIB</td><td>Procedures</td></tr>
+<tr><td>LIFECORE.LOAD</td><td>Executáveis compilados</td></tr>
+<tr><td>LIFECORE.DATA.*</td><td>Arquivos de entrada/saída (GDG versionado)</td></tr>
+</tbody>
+</table>

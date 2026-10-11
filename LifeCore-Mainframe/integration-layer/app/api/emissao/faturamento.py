@@ -19,37 +19,36 @@ Regras de negócio:
   - Reajuste: prêmio corrigido pelo IPCA mensal da competência anterior.
   - Capital tipo M (múltiplo salarial): capital = salario_base × fator_mult.
 """
+
 from __future__ import annotations
 
-import math
-from datetime import datetime, timezone
-from typing import Optional
+import logging
+from datetime import UTC, datetime
 
-from fastapi import APIRouter, HTTPException, status, Path, Query
+from fastapi import APIRouter, HTTPException, Path, Query, status
 
-from app.api.emissao.proposta import _APOLICES
 from app.schemas.lifecore import (
-    EndossoSeguradorRequest,
     EndossoResponse,
+    EndossoSeguradorRequest,
     FaturaApoliceCreate,
     FaturaApoliceResponse,
-    FaturaItemSeguro,
-    TaxaIPCAVigente,
-    TaxaIPCAResponse,
-    StatusEndossoEnum,
     StatusCoberturaEnum,
+    StatusEndossoEnum,
+    TaxaIPCAResponse,
+    TaxaIPCAVigente,
     TipoEndossoEnum,
 )
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
-router_ipca = APIRouter()   # montado em /api/emissao/taxas-ipca
+router_ipca = APIRouter()  # montado em /api/emissao/taxas-ipca
 
 # ── Stores in-memory ──────────────────────────────────────────────────────────
 # Em produção → tabelas ENDOSSO, FATURA, FATURA_ITEM, TAXA_IPCA no PostgreSQL
-_ENDOSSOS: dict[str, dict] = {}          # key: nr_endosso
-_FATURAS: dict[str, dict] = {}           # key: nr_fatura
-_COBERTURAS: dict[str, dict] = {}        # key: "{nr_apolice}:{cpf}"
-_TAXAS_IPCA: dict[str, dict] = {}        # key: cd_competencia AAAAMM
+_ENDOSSOS: dict[str, dict] = {}  # key: nr_endosso
+_FATURAS: dict[str, dict] = {}  # key: nr_fatura
+_COBERTURAS: dict[str, dict] = {}  # key: "{nr_apolice}:{cpf}"
+_TAXAS_IPCA: dict[str, dict] = {}  # key: cd_competencia AAAAMM
 
 _ENDOSSO_SEQ = 1
 _FATURA_SEQ = 1
@@ -79,44 +78,78 @@ for _comp, _mensal, _acum, _divulg in _SEED_TAXAS:
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+
+def _sb_ok(table: str = "faturas") -> bool:
+    try:
+        from app.repositories.supabase_repo import sb_available
+        return sb_available(table)
+    except Exception:
+        return False
+
+
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _hoje() -> str:
-    return datetime.now(timezone.utc).strftime("%Y%m%d")
+    return datetime.now(UTC).strftime("%Y%m%d")
 
 
 def _competencia_atual() -> str:
-    return datetime.now(timezone.utc).strftime("%Y%m")
+    return datetime.now(UTC).strftime("%Y%m")
 
 
 def _gerar_nr_endosso() -> str:
     global _ENDOSSO_SEQ
-    nr = f"END.{datetime.now(timezone.utc).year}.{_ENDOSSO_SEQ:07d}"
+    nr = f"END.{datetime.now(UTC).year}.{_ENDOSSO_SEQ:07d}"
     _ENDOSSO_SEQ += 1
     return nr
 
 
 def _gerar_nr_fatura() -> str:
     global _FATURA_SEQ
-    nr = f"FAT.{datetime.now(timezone.utc).year}.{_FATURA_SEQ:07d}"
+    nr = f"FAT.{datetime.now(UTC).year}.{_FATURA_SEQ:07d}"
     _FATURA_SEQ += 1
     return nr
 
 
 def _taxa_mensal_vigente() -> float:
-    """Retorna a taxa IPCA mensal mais recente disponível."""
+    """Retorna a taxa IPCA mensal mais recente — tenta Supabase primeiro."""
+    try:
+        if _sb_ok("taxas_ipca"):
+            from app.repositories import supabase_repo as sr
+            rows = sr.get_all("taxas_ipca", filters={"fl_vigente": True}, limit=1)
+            if rows:
+                return float(rows[0]["vl_taxa_ipca"])
+            # Fallback: mais recente por competência
+            all_rows = sr.get_all("taxas_ipca", order="cd_competencia", desc=True, limit=1)
+            if all_rows:
+                return float(all_rows[0]["vl_taxa_ipca"])
+    except Exception as exc:
+        logger.debug("Supabase taxa_ipca falhou: %s", exc)
     if not _TAXAS_IPCA:
         return 0.0
     latest = sorted(_TAXAS_IPCA.keys())[-1]
     return _TAXAS_IPCA[latest]["vl_taxa_ipca"]
 
 
-def _calcular_capital(apolice: dict, cobertura: dict | None = None,
-                      vl_capital: float | None = None,
-                      vl_salario: float | None = None,
-                      fator: float | None = None) -> float:
+def _get_apolice(nr_apolice: str) -> dict | None:
+    """Busca apólice no Supabase ou no fallback in-memory (via proposta.py)."""
+    try:
+        from app.api.emissao.proposta import get_apolice
+        return get_apolice(nr_apolice)
+    except Exception:
+        from app.api.emissao.proposta import _APOLICES
+        return _APOLICES.get(nr_apolice)
+
+
+def _calcular_capital(
+    apolice: dict,
+    cobertura: dict | None = None,
+    vl_capital: float | None = None,
+    vl_salario: float | None = None,
+    fator: float | None = None,
+) -> float:
     """
     Calcula capital segurado conforme tipo:
       F = fixo           → usa vl_capital ou da apólice
@@ -133,12 +166,14 @@ def _calcular_capital(apolice: dict, cobertura: dict | None = None,
     if tp == "E":
         base = vl_capital or apolice.get("vl_capital", 0)
         anos = 1  # simplificação — produção usa data de admissão
-        return round(base * (1.05 ** anos), 2)
+        return round(base * (1.05**anos), 2)
     # F, P, B → usa o valor informado ou o da apólice
     return vl_capital or apolice.get("vl_capital", 0)
 
 
-def _calcular_premio(vl_capital: float, taxa_permil: float = 2.5) -> tuple[float, float]:
+def _calcular_premio(
+    vl_capital: float, taxa_permil: float = 2.5
+) -> tuple[float, float]:
     """
     Calcula prêmio bruto e líquido.
     taxa_permil: taxa em ‰ do capital segurado.
@@ -163,16 +198,16 @@ def _avaliar_cobertura(nr_meses_inad: int) -> StatusCoberturaEnum:
 def _coberturas_da_apolice(nr_apolice: str) -> list[dict]:
     """Retorna todas as coberturas ativas de uma apólice."""
     return [
-        c for k, c in _COBERTURAS.items()
+        c
+        for k, c in _COBERTURAS.items()
         if k.startswith(f"{nr_apolice}:")
-        and c.get("cd_status_cobertura") not in (
-            StatusCoberturaEnum.CANCELADA, StatusCoberturaEnum.SEM_COBERTURA
-        )
+        and c.get("cd_status_cobertura")
+        not in (StatusCoberturaEnum.CANCELADA, StatusCoberturaEnum.SEM_COBERTURA)
     ]
 
 
 def _get_apolice_or_404(nr_apolice: str) -> dict:
-    a = _APOLICES.get(nr_apolice)
+    a = _get_apolice(nr_apolice)
     if not a:
         raise HTTPException(404, detail=f"Apólice {nr_apolice} não encontrada.")
     return a
@@ -180,13 +215,26 @@ def _get_apolice_or_404(nr_apolice: str) -> dict:
 
 # ── TAXAS IPCA ────────────────────────────────────────────────────────────────
 
+
 @router_ipca.get(
     "",
     response_model=list[TaxaIPCAResponse],
     summary="Lista todas as taxas IPCA cadastradas",
     tags=["Faturamento · IPCA"],
 )
-def listar_taxas_ipca(fl_vigente: Optional[bool] = None):
+def listar_taxas_ipca(fl_vigente: bool | None = None):
+    try:
+        if _sb_ok("taxas_ipca"):
+            from app.repositories import supabase_repo as sr
+            rows = sr.get_all("taxas_ipca", order="cd_competencia", desc=True)
+            if fl_vigente is not None:
+                rows = [r for r in rows if r["fl_vigente"] == fl_vigente]
+            # cd_taxa não existe na tabela Supabase — injeta sequencial pela ordem
+            for i, r in enumerate(rows, start=1):
+                r.setdefault("cd_taxa", i)
+            return rows
+    except Exception as exc:
+        logger.warning("Supabase listar_taxas_ipca falhou: %s", exc)
     result = list(_TAXAS_IPCA.values())
     if fl_vigente is not None:
         result = [t for t in result if t["fl_vigente"] == fl_vigente]
@@ -202,13 +250,27 @@ def listar_taxas_ipca(fl_vigente: Optional[bool] = None):
 )
 def cadastrar_taxa_ipca(payload: TaxaIPCAVigente):
     global _TAXA_SEQ
+    try:
+        if _sb_ok("taxas_ipca"):
+            from app.repositories import supabase_repo as sr
+            if sr.get_one("taxas_ipca", {"cd_competencia": payload.cd_competencia}):
+                raise HTTPException(409, detail=f"Taxa IPCA para {payload.cd_competencia} já cadastrada.")
+            # Desmarca vigente anterior
+            sr.update("taxas_ipca", {"fl_vigente": True}, {"fl_vigente": False})
+            row = sr.upsert("taxas_ipca", {**payload.model_dump(), "fl_vigente": True})
+            row.setdefault("cd_taxa", _TAXA_SEQ)
+            _TAXAS_IPCA[payload.cd_competencia] = row
+            return row
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.warning("Supabase cadastrar_taxa_ipca falhou: %s", exc)
+
     if payload.cd_competencia in _TAXAS_IPCA:
         raise HTTPException(409, detail=f"Taxa IPCA para {payload.cd_competencia} já cadastrada.")
-    # Desmarca vigente anterior
     for t in _TAXAS_IPCA.values():
         t["fl_vigente"] = False
-    taxa = {**payload.model_dump(), "cd_taxa": _TAXA_SEQ}
-    taxa["fl_vigente"] = True
+    taxa = {**payload.model_dump(), "cd_taxa": _TAXA_SEQ, "fl_vigente": True}
     _TAXA_SEQ += 1
     _TAXAS_IPCA[payload.cd_competencia] = taxa
     return taxa
@@ -220,7 +282,16 @@ def cadastrar_taxa_ipca(payload: TaxaIPCAVigente):
     summary="Consulta taxa IPCA de uma competência",
     tags=["Faturamento · IPCA"],
 )
-def consultar_taxa_ipca(cd_competencia: str = Path(..., pattern=r'^\d{6}$')):
+def consultar_taxa_ipca(cd_competencia: str = Path(..., pattern=r"^\d{6}$")):
+    try:
+        if _sb_ok("taxas_ipca"):
+            from app.repositories import supabase_repo as sr
+            row = sr.get_one("taxas_ipca", {"cd_competencia": cd_competencia})
+            if row:
+                row.setdefault("cd_taxa", 1)
+                return row
+    except Exception as exc:
+        logger.debug("Supabase consultar_taxa_ipca falhou: %s", exc)
     t = _TAXAS_IPCA.get(cd_competencia)
     if not t:
         raise HTTPException(404, detail=f"Taxa IPCA para {cd_competencia} não encontrada.")
@@ -228,6 +299,7 @@ def consultar_taxa_ipca(cd_competencia: str = Path(..., pattern=r'^\d{6}$')):
 
 
 # ── ENDOSSOS ──────────────────────────────────────────────────────────────────
+
 
 @router.post(
     "/{nr_apolice}/endossos",
@@ -242,7 +314,11 @@ def registrar_endosso(
 ):
     apolice = _get_apolice_or_404(nr_apolice)
     from app.schemas.lifecore import StatusApoliceEnum
-    if apolice["cd_status"] not in (StatusApoliceEnum.ATIVA, StatusApoliceEnum.SUSPENSA):
+
+    if apolice["cd_status"] not in (
+        StatusApoliceEnum.ATIVA,
+        StatusApoliceEnum.SUSPENSA,
+    ):
         raise HTTPException(
             status.HTTP_409_CONFLICT,
             detail=f"Apólice está {apolice['cd_status']} — endosso não permitido.",
@@ -255,8 +331,11 @@ def registrar_endosso(
     vl_cap = None
     vl_brt = None
     vl_liq = None
-    if payload.tp_endosso in (TipoEndossoEnum.INCLUSAO, TipoEndossoEnum.ALTERACAO_CAP,
-                               TipoEndossoEnum.REATIVACAO):
+    if payload.tp_endosso in (
+        TipoEndossoEnum.INCLUSAO,
+        TipoEndossoEnum.ALTERACAO_CAP,
+        TipoEndossoEnum.REATIVACAO,
+    ):
         vl_cap = _calcular_capital(
             apolice,
             vl_capital=payload.vl_capital,
@@ -276,43 +355,56 @@ def registrar_endosso(
                 detail=f"Segurado {payload.cd_cpf_segurado} já possui cobertura ativa nesta apólice.",
             )
         _COBERTURAS[chave_cob] = {
-            "cd_cpf_segurado":     payload.cd_cpf_segurado,
-            "nm_segurado":         payload.nm_segurado,
-            "nr_apolice":          nr_apolice,
+            "cd_cpf_segurado": payload.cd_cpf_segurado,
+            "nm_segurado": payload.nm_segurado,
+            "nr_apolice": nr_apolice,
             "dt_inicio_cobertura": payload.dt_inicio_vigencia,
             "dt_ultimo_pagamento": None,
             "nr_meses_inadimplente": 0,
             "cd_status_cobertura": StatusCoberturaEnum.ATIVA,
-            "fl_em_carencia":      False,
-            "nr_dias_carencia":    0,
-            "vl_capital_base":     vl_cap or 0,
-            "vl_capital_atual":    vl_cap or 0,
-            "vl_reajuste_ipca":    0.0,
-            "vl_salario_base":     payload.vl_salario_base,
-            "nr_fator_mult":       payload.nr_fator_mult,
-            "vl_premio_bruto":     vl_brt or 0,
-            "vl_premio_liquido":   vl_liq or 0,
-            "vl_taxa_premio":      2.5,
-            "fl_revalidado":       False,
-            "dt_revalidacao":      None,
+            "fl_em_carencia": False,
+            "nr_dias_carencia": 0,
+            "vl_capital_base": vl_cap or 0,
+            "vl_capital_atual": vl_cap or 0,
+            "vl_reajuste_ipca": 0.0,
+            "vl_salario_base": payload.vl_salario_base,
+            "nr_fator_mult": payload.nr_fator_mult,
+            "vl_premio_bruto": vl_brt or 0,
+            "vl_premio_liquido": vl_liq or 0,
+            "vl_taxa_premio": 2.5,
+            "fl_revalidado": False,
+            "dt_revalidacao": None,
             "ds_status_detalhado": "Segurado incluído via endosso.",
         }
 
     elif payload.tp_endosso == TipoEndossoEnum.EXCLUSAO:
         if chave_cob not in _COBERTURAS:
-            raise HTTPException(404, detail=f"Segurado {payload.cd_cpf_segurado} não encontrado nesta apólice.")
+            raise HTTPException(
+                404,
+                detail=f"Segurado {payload.cd_cpf_segurado} não encontrado nesta apólice.",
+            )
         _COBERTURAS[chave_cob]["cd_status_cobertura"] = StatusCoberturaEnum.CANCELADA
-        _COBERTURAS[chave_cob]["ds_status_detalhado"] = f"Excluído via endosso {nr_endosso}."
+        _COBERTURAS[chave_cob]["ds_status_detalhado"] = (
+            f"Excluído via endosso {nr_endosso}."
+        )
 
     elif payload.tp_endosso == TipoEndossoEnum.SUSPENSAO:
         if chave_cob not in _COBERTURAS:
-            raise HTTPException(404, detail=f"Segurado {payload.cd_cpf_segurado} não encontrado nesta apólice.")
+            raise HTTPException(
+                404,
+                detail=f"Segurado {payload.cd_cpf_segurado} não encontrado nesta apólice.",
+            )
         _COBERTURAS[chave_cob]["cd_status_cobertura"] = StatusCoberturaEnum.SUSPENSA
-        _COBERTURAS[chave_cob]["ds_status_detalhado"] = f"Suspenso via endosso {nr_endosso}."
+        _COBERTURAS[chave_cob]["ds_status_detalhado"] = (
+            f"Suspenso via endosso {nr_endosso}."
+        )
 
     elif payload.tp_endosso == TipoEndossoEnum.REATIVACAO:
         if chave_cob not in _COBERTURAS:
-            raise HTTPException(404, detail=f"Segurado {payload.cd_cpf_segurado} não encontrado nesta apólice.")
+            raise HTTPException(
+                404,
+                detail=f"Segurado {payload.cd_cpf_segurado} não encontrado nesta apólice.",
+            )
         cob = _COBERTURAS[chave_cob]
         cob["cd_status_cobertura"] = StatusCoberturaEnum.ATIVA
         cob["nr_meses_inadimplente"] = 0
@@ -321,11 +413,19 @@ def registrar_endosso(
         cob["vl_capital_atual"] = vl_cap or cob["vl_capital_atual"]
         cob["vl_premio_bruto"] = vl_brt or cob["vl_premio_bruto"]
         cob["vl_premio_liquido"] = vl_liq or cob["vl_premio_liquido"]
-        cob["ds_status_detalhado"] = f"Reativado sem retroativo via endosso {nr_endosso}."
+        cob["ds_status_detalhado"] = (
+            f"Reativado sem retroativo via endosso {nr_endosso}."
+        )
 
-    elif payload.tp_endosso in (TipoEndossoEnum.ALTERACAO_CAP, TipoEndossoEnum.ALTERACAO_SAL):
+    elif payload.tp_endosso in (
+        TipoEndossoEnum.ALTERACAO_CAP,
+        TipoEndossoEnum.ALTERACAO_SAL,
+    ):
         if chave_cob not in _COBERTURAS:
-            raise HTTPException(404, detail=f"Segurado {payload.cd_cpf_segurado} não encontrado nesta apólice.")
+            raise HTTPException(
+                404,
+                detail=f"Segurado {payload.cd_cpf_segurado} não encontrado nesta apólice.",
+            )
         cob = _COBERTURAS[chave_cob]
         if vl_cap:
             cob["vl_capital_atual"] = vl_cap
@@ -335,17 +435,26 @@ def registrar_endosso(
             cob["vl_salario_base"] = payload.vl_salario_base
         if payload.nr_fator_mult:
             cob["nr_fator_mult"] = payload.nr_fator_mult
-        cob["ds_status_detalhado"] = f"Capital/salário alterado via endosso {nr_endosso}."
+        cob["ds_status_detalhado"] = (
+            f"Capital/salário alterado via endosso {nr_endosso}."
+        )
 
     endosso = {
         **payload.model_dump(),
-        "nr_endosso":           nr_endosso,
-        "nr_apolice":           nr_apolice,
-        "cd_status":            StatusEndossoEnum.PROCESSADO,
+        "nr_endosso": nr_endosso,
+        "nr_apolice": nr_apolice,
+        "cd_status": StatusEndossoEnum.PROCESSADO,
         "vl_capital_calculado": vl_cap,
-        "vl_premio_calculado":  vl_brt,
-        "ts_inclusao":          _now(),
+        "vl_premio_calculado": vl_brt,
+        "ts_inclusao": _now().isoformat(),
     }
+    try:
+        if _sb_ok("endossos"):
+            from app.repositories import supabase_repo as sr
+            saved = sr.insert("endossos", {k: v for k, v in endosso.items() if k != "ts_inclusao"})
+            endosso.update(saved)
+    except Exception as exc:
+        logger.warning("Supabase registrar_endosso falhou: %s", exc)
     _ENDOSSOS[nr_endosso] = endosso
     return endosso
 
@@ -358,9 +467,18 @@ def registrar_endosso(
 )
 def listar_endossos(
     nr_apolice: str = Path(..., max_length=20),
-    tp_endosso: Optional[TipoEndossoEnum] = None,
+    tp_endosso: TipoEndossoEnum | None = None,
 ):
     _get_apolice_or_404(nr_apolice)
+    try:
+        if _sb_ok("endossos"):
+            from app.repositories import supabase_repo as sr
+            rows = sr.get_all("endossos", filters={"nr_apolice": nr_apolice}, order="ts_inclusao", desc=True)
+            if tp_endosso:
+                rows = [r for r in rows if r["tp_endosso"] == tp_endosso]
+            return rows
+    except Exception as exc:
+        logger.warning("Supabase listar_endossos falhou: %s", exc)
     result = [e for e in _ENDOSSOS.values() if e["nr_apolice"] == nr_apolice]
     if tp_endosso:
         result = [e for e in result if e["tp_endosso"] == tp_endosso]
@@ -403,6 +521,7 @@ def cancelar_endosso(nr_apolice: str, nr_endosso: str, id_usuario: str):
 
 # ── FATURAMENTO ───────────────────────────────────────────────────────────────
 
+
 @router.get(
     "/{nr_apolice}/faturamento",
     response_model=list[FaturaApoliceResponse],
@@ -411,10 +530,21 @@ def cancelar_endosso(nr_apolice: str, nr_endosso: str, id_usuario: str):
 )
 def listar_faturas(
     nr_apolice: str = Path(..., max_length=20),
-    cd_competencia: Optional[str] = Query(None, pattern=r'^\d{6}$'),
-    cd_status: Optional[str] = None,
+    cd_competencia: str | None = Query(None, pattern=r"^\d{6}$"),
+    cd_status: str | None = None,
 ):
     _get_apolice_or_404(nr_apolice)
+    try:
+        if _sb_ok("faturas"):
+            from app.repositories import supabase_repo as sr
+            filters: dict = {"nr_apolice": nr_apolice}
+            if cd_competencia:
+                filters["cd_competencia"] = cd_competencia
+            if cd_status:
+                filters["cd_status"] = cd_status
+            return sr.get_all("faturas", filters=filters, order="cd_competencia", desc=True)
+    except Exception as exc:
+        logger.warning("Supabase listar_faturas falhou: %s", exc)
     result = [f for f in _FATURAS.values() if f["nr_apolice"] == nr_apolice]
     if cd_competencia:
         result = [f for f in result if f["cd_competencia"] == cd_competencia]
@@ -437,8 +567,10 @@ def gerar_fatura(
     apolice = _get_apolice_or_404(nr_apolice)
     # Impede duplicidade
     dupe = [
-        f for f in _FATURAS.values()
-        if f["nr_apolice"] == nr_apolice and f["cd_competencia"] == payload.cd_competencia
+        f
+        for f in _FATURAS.values()
+        if f["nr_apolice"] == nr_apolice
+        and f["cd_competencia"] == payload.cd_competencia
     ]
     if dupe:
         raise HTTPException(
@@ -460,19 +592,21 @@ def gerar_fatura(
         vl_cap_ajust = round(vl_cap_base * (1 + taxa_mensal / 100), 2)
         vl_ipca = round(vl_cap_ajust - vl_cap_base, 2)
         vl_brt, vl_liq = _calcular_premio(vl_cap_ajust)
-        itens.append({
-            "cd_cpf_segurado":     apolice.get("cd_cpf_segurado", "00000000000"),
-            "nm_segurado":         "SEGURADO PRINCIPAL",
-            "vl_capital_coberto":  vl_cap_ajust,
-            "vl_premio_bruto":     vl_brt,
-            "vl_premio_liquido":   vl_liq,
-            "vl_reajuste_ipca":    vl_ipca,
-            "cd_status_cobertura": StatusCoberturaEnum.ATIVA,
-            "dt_inicio_cobertura": apolice.get("dt_inicio_vigencia", _hoje()),
-            "dt_fim_cobertura":    None,
-            "fl_revalidado":       False,
-            "ds_observacao":       "Capital gerado diretamente da apólice.",
-        })
+        itens.append(
+            {
+                "cd_cpf_segurado": apolice.get("cd_cpf_segurado", "00000000000"),
+                "nm_segurado": "SEGURADO PRINCIPAL",
+                "vl_capital_coberto": vl_cap_ajust,
+                "vl_premio_bruto": vl_brt,
+                "vl_premio_liquido": vl_liq,
+                "vl_reajuste_ipca": vl_ipca,
+                "cd_status_cobertura": StatusCoberturaEnum.ATIVA,
+                "dt_inicio_cobertura": apolice.get("dt_inicio_vigencia", _hoje()),
+                "dt_fim_cobertura": None,
+                "fl_revalidado": False,
+                "ds_observacao": "Capital gerado diretamente da apólice.",
+            }
+        )
         vl_total_bruto += vl_brt
         vl_total_liq += vl_liq
         vl_total_ipca += vl_ipca
@@ -492,40 +626,49 @@ def gerar_fatura(
             cob["vl_premio_liquido"] = vl_liq
             cob["dt_ultimo_pagamento"] = _hoje()
 
-            itens.append({
-                "cd_cpf_segurado":     cob["cd_cpf_segurado"],
-                "nm_segurado":         cob["nm_segurado"],
-                "vl_capital_coberto":  vl_cap_ajust,
-                "vl_premio_bruto":     vl_brt,
-                "vl_premio_liquido":   vl_liq,
-                "vl_reajuste_ipca":    vl_ipca,
-                "cd_status_cobertura": cob["cd_status_cobertura"],
-                "dt_inicio_cobertura": cob["dt_inicio_cobertura"],
-                "dt_fim_cobertura":    None,
-                "fl_revalidado":       cob.get("fl_revalidado", False),
-                "ds_observacao":       cob.get("ds_status_detalhado"),
-            })
+            itens.append(
+                {
+                    "cd_cpf_segurado": cob["cd_cpf_segurado"],
+                    "nm_segurado": cob["nm_segurado"],
+                    "vl_capital_coberto": vl_cap_ajust,
+                    "vl_premio_bruto": vl_brt,
+                    "vl_premio_liquido": vl_liq,
+                    "vl_reajuste_ipca": vl_ipca,
+                    "cd_status_cobertura": cob["cd_status_cobertura"],
+                    "dt_inicio_cobertura": cob["dt_inicio_cobertura"],
+                    "dt_fim_cobertura": None,
+                    "fl_revalidado": cob.get("fl_revalidado", False),
+                    "ds_observacao": cob.get("ds_status_detalhado"),
+                }
+            )
             vl_total_bruto += vl_brt
             vl_total_liq += vl_liq
             vl_total_ipca += vl_ipca
 
     nr_fatura = _gerar_nr_fatura()
     fatura = {
-        "nr_fatura":       nr_fatura,
-        "nr_apolice":      nr_apolice,
-        "cd_empresa":      apolice.get("cd_empresa", 0),
-        "cd_competencia":  payload.cd_competencia,
-        "dt_emissao":      _hoje(),
-        "dt_vencimento":   payload.dt_vencimento,
-        "forma_cobranca":  payload.forma_cobranca,
-        "vl_total_bruto":  round(vl_total_bruto, 2),
+        "nr_fatura": nr_fatura,
+        "nr_apolice": nr_apolice,
+        "cd_empresa": apolice.get("cd_empresa", 0),
+        "cd_competencia": payload.cd_competencia,
+        "dt_emissao": _hoje(),
+        "dt_vencimento": payload.dt_vencimento,
+        "forma_cobranca": payload.forma_cobranca,
+        "vl_total_bruto": round(vl_total_bruto, 2),
         "vl_total_liquido": round(vl_total_liq, 2),
         "vl_reajuste_ipca": round(vl_total_ipca, 2),
-        "nr_segurados":    len(itens),
-        "itens":           itens,
-        "cd_status":       "EM_ABERTO",
-        "ts_geracao":      _now(),
+        "nr_segurados": len(itens),
+        "itens": itens,
+        "cd_status": "EM_ABERTO",
+        "ts_geracao": _now().isoformat(),
     }
+    try:
+        if _sb_ok("faturas"):
+            from app.repositories import supabase_repo as sr
+            saved = sr.insert("faturas", {k: v for k, v in fatura.items() if k != "ts_geracao"})
+            fatura.update(saved)
+    except Exception as exc:
+        logger.warning("Supabase gerar_fatura falhou: %s", exc)
     _FATURAS[nr_fatura] = fatura
     return fatura
 
@@ -541,6 +684,14 @@ def detalhar_fatura(
     nr_fatura: str = Path(...),
 ):
     _get_apolice_or_404(nr_apolice)
+    try:
+        if _sb_ok("faturas"):
+            from app.repositories import supabase_repo as sr
+            row = sr.get_one("faturas", {"nr_fatura": nr_fatura})
+            if row and row["nr_apolice"] == nr_apolice:
+                return row
+    except Exception as exc:
+        logger.debug("Supabase detalhar_fatura falhou: %s", exc)
     f = _FATURAS.get(nr_fatura)
     if not f or f["nr_apolice"] != nr_apolice:
         raise HTTPException(404, detail=f"Fatura {nr_fatura} não encontrada.")

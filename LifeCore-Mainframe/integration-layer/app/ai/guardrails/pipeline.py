@@ -14,26 +14,27 @@ Padrões detectados:
   - SQL injection via tool calling
   - Execução de jobs destrutivos sem aprovação explícita
 """
+
 from __future__ import annotations
 
-import re
 import logging
+import re
 import time
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Callable
 
 logger = logging.getLogger(__name__)
 
 
 # ── Tipos ─────────────────────────────────────────────────────────────────────
 
+
 @dataclass
 class GuardrailResult:
-    allowed:    bool
-    reason:     str | None = None
-    sanitized:  str | None = None      # texto sanitizado (output guardrail)
-    risk_score: float = 0.0            # 0.0 = seguro, 1.0 = bloqueado
+    allowed: bool
+    reason: str | None = None
+    sanitized: str | None = None  # texto sanitizado (output guardrail)
+    risk_score: float = 0.0  # 0.0 = seguro, 1.0 = bloqueado
 
 
 # ── Padrões de detecção ───────────────────────────────────────────────────────
@@ -43,22 +44,22 @@ _INJECTION_PATTERNS = [
     r"ignore\s+(as\s+)?instru[cç][oõ]es\s+anteriores",
     r"forget\s+(your\s+)?instructions",
     r"you\s+are\s+now\s+a",
-    r"act\s+as\s+(a\s+)?(?!lifecore)",   # "act as [algo diferente de lifecore]"
+    r"act\s+as\s+(a\s+)?(?!lifecore)",  # "act as [algo diferente de lifecore]"
     r"jailbreak",
     r"DAN\s+mode",
-    r"<\|.*?\|>",                         # tokens especiais de modelos
+    r"<\|.*?\|>",  # tokens especiais de modelos
     r"\[SYSTEM\]",
     r"ignore\s+previous",
 ]
 
 # PAN — número de cartão (16 dígitos, com ou sem separadores)
 _PAN_PATTERN = re.compile(
-    r"\b(?:4[0-9]{12}(?:[0-9]{3})?|"           # Visa
-    r"5[1-5][0-9]{14}|"                          # Mastercard
-    r"3[47][0-9]{13}|"                           # Amex
-    r"3(?:0[0-5]|[68][0-9])[0-9]{11}|"          # Diners
-    r"6(?:011|5[0-9]{2})[0-9]{12}|"             # Discover
-    r"(?:2131|1800|35\d{3})\d{11})\b"           # JCB
+    r"\b(?:4[0-9]{12}(?:[0-9]{3})?|"  # Visa
+    r"5[1-5][0-9]{14}|"  # Mastercard
+    r"3[47][0-9]{13}|"  # Amex
+    r"3(?:0[0-5]|[68][0-9])[0-9]{11}|"  # Diners
+    r"6(?:011|5[0-9]{2})[0-9]{12}|"  # Discover
+    r"(?:2131|1800|35\d{3})\d{11})\b"  # JCB
 )
 
 # CPF completo (11 dígitos consecutivos)
@@ -76,12 +77,13 @@ _JOBS_DESTRUTIVOS = {"FATURA01", "PAGTO01", "CONCIL01", "COMIS01", "SETTLE01"}
 
 # ── Input Guardrail ───────────────────────────────────────────────────────────
 
+
 class InputGuardrail:
     """Valida e sanitiza a entrada do usuário antes de enviar ao LLM."""
 
     def __init__(self, max_length: int = 2000):
         self._max_length = max_length
-        self._compiled   = [re.compile(p, re.IGNORECASE) for p in _INJECTION_PATTERNS]
+        self._compiled = [re.compile(p, re.IGNORECASE) for p in _INJECTION_PATTERNS]
 
     def check(self, text: str) -> GuardrailResult:
         # Comprimento máximo
@@ -116,6 +118,7 @@ class InputGuardrail:
 
 # ── Action Guardrail ──────────────────────────────────────────────────────────
 
+
 class ActionGuardrail:
     """Valida chamadas de tool antes de executar."""
 
@@ -148,6 +151,7 @@ class ActionGuardrail:
 
 
 # ── Output Guardrail ──────────────────────────────────────────────────────────
+
 
 class OutputGuardrail:
     """Sanitiza a saída do LLM antes de entregar ao usuário."""
@@ -184,15 +188,16 @@ class OutputGuardrail:
 
 # ── Rate Limiter ──────────────────────────────────────────────────────────────
 
+
 class RateLimiter:
     """Limita chamadas ao agente por usuário/minuto."""
 
     def __init__(self, max_per_minute: int = 20):
-        self._max    = max_per_minute
+        self._max = max_per_minute
         self._calls: dict[str, list[float]] = defaultdict(list)
 
     def check(self, user_id: str) -> GuardrailResult:
-        now    = time.time()
+        now = time.time()
         window = now - 60  # último minuto
         history = [t for t in self._calls[user_id] if t > window]
         history.append(now)
@@ -208,6 +213,7 @@ class RateLimiter:
 
 
 # ── Pipeline completo ─────────────────────────────────────────────────────────
+
 
 class GuardrailPipeline:
     """
@@ -227,7 +233,7 @@ class GuardrailPipeline:
     """
 
     def __init__(self):
-        self.input_guard  = InputGuardrail()
+        self.input_guard = InputGuardrail()
         self.action_guard = ActionGuardrail()
         self.output_guard = OutputGuardrail()
         self.rate_limiter = RateLimiter()
@@ -247,6 +253,7 @@ class GuardrailPipeline:
 
 # ── Singleton ─────────────────────────────────────────────────────────────────
 _pipeline: GuardrailPipeline | None = None
+
 
 def get_guardrails() -> GuardrailPipeline:
     global _pipeline

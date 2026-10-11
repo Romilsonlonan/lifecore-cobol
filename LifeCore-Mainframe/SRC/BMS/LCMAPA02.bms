@@ -1,0 +1,141 @@
+         PRINT NOGEN
+***********************************************************************
+* LCMAPA02 - LIFECORE IQ - MAPA BMS: MENU PRINCIPAL                  *
+* Autor  : LifeCore IQ                                                *
+* Data   : 2026-10-04                                                 *
+* Versao : 1.0.0                                                      *
+* Trans  : LCMN                                                       *
+***********************************************************************
+LCMAPA02 DFHMSD TYPE=&SYSPARM,                                         X
+               LANG=COBOL,                                             X
+               MODE=INOUT,                                             X
+               TERM=3270-2,                                            X
+               CTRL=FREEKB,                                            X
+               STORAGE=AUTO,                                           X
+               TIOAPFX=YES
+***********************************************************************
+* MAPSET: LCMSET2  MAP: LCTMENU                                       *
+***********************************************************************
+LCTMENU  DFHMDI SIZE=(24,80),                                          X
+               LINE=1,                                                 X
+               COLUMN=1
+*--- CABECALHO --------------------------------------------------------
+         DFHMDF POS=(1,1),                                             X
+               LENGTH=79,                                              X
+               ATTRB=(PROT,BRT),                                       X
+               COLOR=BLUE,                                             X
+               INITIAL='══════════════════════════════════════════════X
+══════════════════════════════'
+         DFHMDF POS=(2,2),                                             X
+               LENGTH=44,                                              X
+               ATTRB=(PROT,BRT),                                       X
+               COLOR=TURQUOISE,                                        X
+               INITIAL='  LIFECORE IQ  V1.0  -  MENU PRINCIPAL      '
+*--- USUARIO LOGADO ---------------------------------------------------
+         DFHMDF POS=(2,55),                                            X
+               LENGTH=8,                                               X
+               ATTRB=(PROT,NORM),                                      X
+               COLOR=YELLOW,                                           X
+               INITIAL='Usuario:'
+         DFHMDF POS=(2,64),                                            X
+               LENGTH=10,                                              X
+               ATTRB=(PROT,NORM),                                      X
+               COLOR=WHITE,                                            X
+               NAME=LCUNOME
+         DFHMDF POS=(3,1),                                             X
+               LENGTH=79,                                              X
+               ATTRB=(PROT,BRT),                                       X
+               COLOR=BLUE,                                             X
+               INITIAL='──────────────────────────────────────────────X
+──────────────────────────────'
+*--- OPCOES DO MENU ---------------------------------------------------
+         DFHMDF POS=(5,25),                                            X
+               LENGTH=30,                                              X
+               ATTRB=(PROT,NORM),                                      X
+               COLOR=WHITE,                                            X
+               INITIAL='+----------------------------+'
+         DFHMDF POS=(6,25),                                            X
+               LENGTH=30,                                              X
+               ATTRB=(PROT,BRT),                                       X
+               COLOR=TURQUOISE,                                        X
+               INITIAL='|   LIFECORE IQ - OPCOES     |'
+         DFHMDF POS=(7,25),                                            X
+               LENGTH=30,                                              X
+               ATTRB=(PROT,NORM),                                      X
+               COLOR=WHITE,                                            X
+               INITIAL='+----------------------------+'
+         DFHMDF POS=(9,27),                                            X
+               LENGTH=26,                                              X
+               ATTRB=(PROT,NORM),                                      X
+               COLOR=GREEN,                                            X
+               INITIAL='  1 - APOLICES            '
+         DFHMDF POS=(10,27),                                           X
+               LENGTH=26,                                              X
+               ATTRB=(PROT,NORM),                                      X
+               COLOR=GREEN,                                            X
+               INITIAL='  2 - SEGURADOS           '
+         DFHMDF POS=(11,27),                                           X
+               LENGTH=26,                                              X
+               ATTRB=(PROT,NORM),                                      X
+               COLOR=GREEN,                                            X
+               INITIAL='  3 - FATURAMENTO         '
+         DFHMDF POS=(12,27),                                           X
+               LENGTH=26,                                              X
+               ATTRB=(PROT,NORM),                                      X
+               COLOR=GREEN,                                            X
+               INITIAL='  4 - SINISTROS           '
+         DFHMDF POS=(13,27),                                           X
+               LENGTH=26,                                              X
+               ATTRB=(PROT,NORM),                                      X
+               COLOR=GREEN,                                            X
+               INITIAL='  5 - CORRETAGEM          '
+         DFHMDF POS=(14,27),                                           X
+               LENGTH=26,                                              X
+               ATTRB=(PROT,NORM),                                      X
+               COLOR=GREEN,                                            X
+               INITIAL='  6 - RELATORIOS          '
+         DFHMDF POS=(15,27),                                           X
+               LENGTH=26,                                              X
+               ATTRB=(PROT,NORM),                                      X
+               COLOR=GREEN,                                            X
+               INITIAL='  7 - LOTES IMPORTADOS    '
+         DFHMDF POS=(16,27),                                           X
+               LENGTH=26,                                              X
+               ATTRB=(PROT,NORM),                                      X
+               COLOR=YELLOW,                                           X
+               INITIAL='  X - SAIR                '
+         DFHMDF POS=(17,27),                                           X
+               LENGTH=8,                                               X
+               ATTRB=(PROT,NORM),                                      X
+               COLOR=YELLOW,                                           X
+               INITIAL='OPCAO...'
+         DFHMDF POS=(17,36),                                           X
+               LENGTH=1,                                               X
+               ATTRB=(NORM,IC),                                        X
+               COLOR=GREEN,                                            X
+               NAME=LCOPC
+         DFHMDF POS=(19,25),                                           X
+               LENGTH=30,                                              X
+               ATTRB=(PROT,NORM),                                      X
+               COLOR=WHITE,                                            X
+               INITIAL='+----------------------------+'
+*--- MENSAGEM ---------------------------------------------------------
+         DFHMDF POS=(21,16),                                           X
+               LENGTH=48,                                              X
+               ATTRB=(PROT,BRT),                                       X
+               COLOR=RED,                                              X
+               NAME=LCMSG
+*--- RODAPE -----------------------------------------------------------
+         DFHMDF POS=(23,20),                                           X
+               LENGTH=40,                                              X
+               ATTRB=(PROT,NORM),                                      X
+               COLOR=YELLOW,                                           X
+               INITIAL='PF3=Sair   PF7=Voltar   ENTER=Confirmar  '
+         DFHMDF POS=(24,1),                                            X
+               LENGTH=79,                                              X
+               ATTRB=(PROT,BRT),                                       X
+               COLOR=BLUE,                                             X
+               INITIAL='══════════════════════════════════════════════X
+══════════════════════════════'
+         DFHMSD TYPE=FINAL
+         END

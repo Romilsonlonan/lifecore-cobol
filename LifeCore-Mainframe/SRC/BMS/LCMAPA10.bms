@@ -1,0 +1,57 @@
+         PRINT NOGEN
+***********************************************************************
+* LCMAPA10 - CONSULTA DE VIDAS IMPORTADAS POR APOLICE                *
+* Transacao CICS: LCVD                                               *
+***********************************************************************
+LCMAPA10 DFHMSD TYPE=&SYSPARM,                                         X
+               LANG=COBOL,                                             X
+               MODE=INOUT,                                             X
+               TERM=3270-2,                                            X
+               CTRL=FREEKB,                                            X
+               STORAGE=AUTO,                                           X
+               TIOAPFX=YES
+LCVDMPA  DFHMDI SIZE=(24,80),                                          X
+               LINE=1,                                                 X
+               COLUMN=1
+         DFHMDF POS=(1,1),LENGTH=79,ATTRB=(PROT,BRT),                  X
+               COLOR=BLUE,                                             X
+               INITIAL='LIFECORE IQ - CONSULTA DE VIDAS IMPORTADAS'
+         DFHMDF POS=(3,3),LENGTH=9,ATTRB=(PROT,NORM),                  X
+               INITIAL='Apolice:'
+         DFHMDF POS=(3,13),LENGTH=14,ATTRB=(UNPROT,IC,FSET),           X
+               COLOR=GREEN,NAME=VDAPO
+         DFHMDF POS=(5,3),LENGTH=12,ATTRB=(PROT,NORM),                 X
+               INITIAL='Sit.Lote:'
+         DFHMDF POS=(5,16),LENGTH=2,ATTRB=(PROT,BRT),                  X
+               COLOR=YELLOW,NAME=VDST
+         DFHMDF POS=(5,23),LENGTH=11,ATTRB=(PROT,NORM),                X
+               INITIAL='Registros:'
+         DFHMDF POS=(5,35),LENGTH=9,ATTRB=(PROT,BRT),                  X
+               COLOR=YELLOW,NAME=VDTOT
+         DFHMDF POS=(5,48),LENGTH=9,ATTRB=(PROT,NORM),                 X
+               INITIAL='Gravados:'
+         DFHMDF POS=(5,58),LENGTH=9,ATTRB=(PROT,BRT),                  X
+               COLOR=TURQUOISE,NAME=VDGRV
+         DFHMDF POS=(6,3),LENGTH=14,ATTRB=(PROT,NORM),                 X
+               INITIAL='Dt.Importacao:'
+         DFHMDF POS=(6,18),LENGTH=8,ATTRB=(PROT,BRT),                  X
+               COLOR=YELLOW,NAME=VDDAT
+         DFHMDF POS=(8,2),LENGTH=73,ATTRB=(PROT,BRT),                  X
+               COLOR=TURQUOISE,                                        X
+               INITIAL='CPF         NOME                    SUB  CAPITAL'
+         DFHMDF POS=(9,2),LENGTH=73,ATTRB=(PROT,NORM),                 X
+               NAME=VDROW1
+         DFHMDF POS=(10,2),LENGTH=73,ATTRB=(PROT,NORM),                X
+               NAME=VDROW2
+         DFHMDF POS=(11,2),LENGTH=73,ATTRB=(PROT,NORM),                X
+               NAME=VDROW3
+         DFHMDF POS=(12,2),LENGTH=73,ATTRB=(PROT,NORM),                X
+               NAME=VDROW4
+         DFHMDF POS=(13,2),LENGTH=73,ATTRB=(PROT,NORM),                X
+               NAME=VDROW5
+         DFHMDF POS=(16,2),LENGTH=74,ATTRB=(PROT,BRT),                 X
+               COLOR=YELLOW,NAME=VDMSG
+         DFHMDF POS=(22,2),LENGTH=73,ATTRB=(PROT,NORM),                X
+               INITIAL='Informe a Apolice e pressione ENTER. PF3=Menu'
+         DFHMSD TYPE=FINAL
+         END

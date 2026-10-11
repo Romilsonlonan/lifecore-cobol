@@ -7,12 +7,13 @@ GET    /api/pessoas/{cd_pessoa}
 PUT    /api/pessoas/{cd_pessoa}
 GET    /api/pessoas/{cd_pessoa}/apolices  (vínculos)
 """
+
 from datetime import datetime
+
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
-from typing import Optional
 
-from app.schemas.lifecore import TipoPessoaEnum, StatusGeralEnum
+from app.schemas.lifecore import StatusGeralEnum, TipoPessoaEnum
 
 router = APIRouter()
 
@@ -24,7 +25,7 @@ _DB: dict[int, dict] = {
         "nm_pessoa": "ANA CORRETOR",
         "dt_nascimento": "19850320",
         "cd_sexo": "F",
-        "cd_email": "ana@corretora.com.br",
+        "cd_email": "ana@corretora.com.br",  # presidio: ignore
         "nr_telefone": "11987654321",
         "cd_tipo_relacao": "COR",  # Corretor
         "cd_status": StatusGeralEnum.ATIVO,
@@ -45,22 +46,24 @@ _TIPOS_RELACAO = {
 
 
 class PessoaCreate(BaseModel):
-    tp_pessoa:      TipoPessoaEnum
-    cd_cpf_cnpj:    str     = Field(..., min_length=11, max_length=14)
-    nm_pessoa:      str     = Field(..., max_length=80)
-    dt_nascimento:  Optional[str] = Field(None, pattern=r"^\d{8}$")
-    cd_sexo:        Optional[str] = Field(None, pattern=r"^[MFI]$")
-    cd_email:       Optional[str] = Field(None, max_length=80)
-    nr_telefone:    Optional[str] = Field(None, max_length=20)
-    cd_tipo_relacao: str = Field(..., description=f"Tipos: {list(_TIPOS_RELACAO.keys())}")
+    tp_pessoa: TipoPessoaEnum
+    cd_cpf_cnpj: str = Field(..., min_length=11, max_length=14)
+    nm_pessoa: str = Field(..., max_length=80)
+    dt_nascimento: str | None = Field(None, pattern=r"^\d{8}$")
+    cd_sexo: str | None = Field(None, pattern=r"^[MFI]$")
+    cd_email: str | None = Field(None, max_length=80)
+    nr_telefone: str | None = Field(None, max_length=20)
+    cd_tipo_relacao: str = Field(
+        ..., description=f"Tipos: {list(_TIPOS_RELACAO.keys())}"
+    )
 
 
 class PessoaResponse(PessoaCreate):
-    cd_pessoa:      int
+    cd_pessoa: int
     nm_tipo_relacao: str
-    cd_status:      StatusGeralEnum
-    dt_inclusao:    str
-    ts_inclusao:    datetime
+    cd_status: StatusGeralEnum
+    dt_inclusao: str
+    ts_inclusao: datetime
 
     class Config:
         from_attributes = True
@@ -69,8 +72,8 @@ class PessoaResponse(PessoaCreate):
 class VinculoApoliceResponse(BaseModel):
     nr_apolice: str
     cd_produto: str
-    cd_papel:   str     # BEN / COR / etc.
-    pct_participacao: Optional[float] = None
+    cd_papel: str  # BEN / COR / etc.
+    pct_participacao: float | None = None
 
 
 @router.get("", response_model=list[PessoaResponse], summary="Lista pessoas")
@@ -91,11 +94,14 @@ def criar_pessoa(payload: PessoaCreate):
     global _NEXT_ID
     if payload.cd_tipo_relacao not in _TIPOS_RELACAO:
         raise HTTPException(
-            422, detail=f"Tipo de relação '{payload.cd_tipo_relacao}' inválido. Válidos: {list(_TIPOS_RELACAO.keys())}"
+            422,
+            detail=f"Tipo de relação '{payload.cd_tipo_relacao}' inválido. Válidos: {list(_TIPOS_RELACAO.keys())}",
         )
     for p in _DB.values():
         if p["cd_cpf_cnpj"] == payload.cd_cpf_cnpj:
-            raise HTTPException(409, detail=f"CPF/CNPJ {payload.cd_cpf_cnpj} já cadastrado.")
+            raise HTTPException(
+                409, detail=f"CPF/CNPJ {payload.cd_cpf_cnpj} já cadastrado."
+            )
     pessoa = {
         "cd_pessoa": _NEXT_ID,
         **payload.model_dump(),
@@ -138,4 +144,9 @@ def listar_apolices_pessoa(cd_pessoa: int):
 
 
 def _to_response(p: dict) -> dict:
-    return {**p, "nm_tipo_relacao": _TIPOS_RELACAO.get(p.get("cd_tipo_relacao", ""), "Desconhecido")}
+    return {
+        **p,
+        "nm_tipo_relacao": _TIPOS_RELACAO.get(
+            p.get("cd_tipo_relacao", ""), "Desconhecido"
+        ),
+    }

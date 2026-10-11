@@ -206,11 +206,26 @@ produção, arquivos de corretagem e relacionamento operacional.
 
 ## 9 · ⚖️ Sinistros (`sin`)
 
-**Responsabilidade:** Abertura, análise, documentação, pendências e acompanhamento de sinistros.
+**Responsabilidade:** Abertura, análise, documentação, pendências, acompanhamento de sinistros
+e **detecção de fraude atuarial em VGC/GLB**.
 
 **Artefatos principais:**
 - `app/api/sinistro/sinistro.py`
 - `app/api/sinistro/kit_ecm.py` — documentação ECM
+- `app/ai/fraud/` — motor de detecção de fraude em sinistros (LCIQ-3)
+
+**Módulo de fraude — flags atuariais monitoradas:**
+
+| Flag | Condição |
+|------|----------|
+| `abertura_imediata` | `DT_ABERTURA = DT_EVENTO` |
+| `capital_anormal` | `VL_INDENIZACAO > 2×` média histórica da empresa |
+| `inclusao_retroativa` | Segurado incluso < 30 dias antes do evento |
+| `carencia_violada` | `DT_EVENTO < DT_INCLUSAO + NR_CARENCIA_DIAS` |
+| `concentracao_mort` | > 3 MORT na mesma empresa em 90 dias |
+| `proposta_manual_rapida` | `TP_ACEITE=MA` + `NR_DIAS_ANALISE=0` |
+
+> ⚠️ Fraude de seguros ≠ fraude de cartão. O módulo analisa `SINISTRO`, `COBERTURA`, `PROPOSTA` e `SEGURADO` — não `PAGAMENTO` ou `CONCILIACAO`.
 
 **Branch padrão:** `feat/sin/LCIQ-###-descricao`
 
@@ -330,7 +345,8 @@ e problemas de integridade referencial.
 
 ## 15 · 🔐 Governança (`gov`)
 
-**Responsabilidade:** Auditoria, permissões, rastreabilidade e conformidade regulatória.
+**Responsabilidade:** Auditoria, permissões, rastreabilidade, conformidade regulatória
+e **observabilidade do pipeline de segurança** (LCIQ-11).
 
 **Frameworks regulatórios:**
 - **LGPD** — dados pessoais (CPF, nome, data nasc.) com log de acesso e mascaramento
@@ -343,6 +359,15 @@ Mapeado ao RBAC da Integration Layer (`app/auth/`).
 
 **Trilha de auditoria:** toda alteração de apólice registrada em `_HISTORICO`
 com `tp_acao`, `ds_valor_antes`, `ds_valor_depois`, `id_usuario`, `dt_hora_acao`.
+
+**Pipeline de segurança (pre-commit + CI/CD):**
+- `Presidio 2.2.364` — detecção de PII/PAN em código Python (LGPD + PCI-DSS)
+- `Bandit 1.9.4` — SAST Python, severity medium+
+- `detect-secrets 1.5.0` — credenciais hardcoded (27 plugins)
+- `scripts/cobol_pci_hook.sh` — campos PAN e SQLCA inline em COBOL
+- Eventos de bloqueio registrados em `AUDITORIA_ACAO` via `app/ai/security/events.py`
+
+**Tipos de evento de segurança:** `PII_DETECTED` · `PAN_DETECTED` · `SECRET_DETECTED` · `SAST_VIOLATION` · `CPF_HARDCODED`
 
 **Branch padrão:** `chore/gov/LCIQ-###-descricao`
 
@@ -370,7 +395,9 @@ testes de regressão e injeção de falhas para treinamento de causa raiz.
 - `TESTDATA/APOLICE_S0C7.DAT` — campo COMP-3 corrompido → provoca S0C7
 - CPF inválido na planilha → provoca E001/E002 no motor de críticas
 
-**CI/CD:** `.github/workflows/ci.yml` — lint + typecheck + pytest + COBOL compile
+**CI/CD:** `.github/workflows/ci.yml` — 8 jobs: compile · lint · integration-test · schema-validate · api-test · e2e-test · **security** · summary
+
+**Pre-commit:** `.pre-commit-config.yaml` — ruff · detect-secrets · bandit · presidio-pii-scan · cobol-pci-check
 
 **Branch padrão:** `fix/qat/LCIQ-###-descricao`
 
